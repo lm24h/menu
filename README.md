@@ -131,9 +131,25 @@ int main() {
     
     menu.response(2);
     
-    std::cout << menu.response();
+    std::cout << "Integer Response: " << menu.response() << "\n";
 
 }
+```
+
+Output:
+
+```
+    Restaurant Menu
+~~~~~~~~~~~~~~~~~~~~~~~
+Item             Price
+-----------------------
+1) Burger        $8.99
+-----------------------
+2) Pizza         $11.50
+=======================
+3) Salad         $6.25
+~~~~~~~~~~~~~~~~~~~~~~~
+Integer Response: 2
 ```
 
 ## Features
