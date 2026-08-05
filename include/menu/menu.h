@@ -299,6 +299,18 @@ public:
     [[nodiscard]] constexpr T menu_items() const noexcept { return menu_items_; }
 
 
+    constexpr void append_menu_items(const std::vector<std::string>& row)
+    requires is_2d_str_vec<T> {
+
+        if (row.size() != menu_items_[0].size())
+            throw std::invalid_argument(
+                "\nRow size ->(" + std::to_string(row.size()) + ") " +
+                "does not match established number of columns ->(" + std::to_string(menu_items_[0].size()) + ")"
+            );
+
+        menu_items_.emplace_back(row);
+    }
+
     /**
      * @brief sets headers for menu c
      * @param headers describes a vector of column names
