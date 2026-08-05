@@ -17,9 +17,6 @@ template <typename T>
 concept is_menu_items = is_2d_str_vec<T> || is_1d_str_vec<T> ;
 
 
-template <typename T>
-concept StringLike = std::convertible_to<std::decay_t<T>, std::string>;
-
 template <typename T> requires is_menu_items<T>
 class Menu;
 
@@ -262,8 +259,8 @@ public:
      * @throws std::invalid_argument if the number of headers does not match the number of columns of menu.
      * headers and separators will remain empty
      */
-    template <StringLike string_l, typename... Args>
-    explicit Menu(const string_l& header, Args&&... args, const T& menu_items)
+    template <typename... Args>
+    explicit Menu(const std::string& header, Args&&... args, const T& menu_items)
     requires is_2d_str_vec<T> :
         menu_items_(menu_items), header_({}), separators_({})
     {
@@ -280,8 +277,7 @@ public:
 
 
     /** @brief Sets title for menu */
-    template <StringLike S>
-    constexpr void title(const S& title) noexcept { title_ = title; }
+    constexpr void title(const std::string& title) noexcept { title_ = title; }
 
 
     /** @returns title for menu or empty string if title not set */
@@ -309,8 +305,7 @@ public:
      *
      * @throws std::invalid_argument if the number of headers does not match the number of columns of menu.
      */
-    template <StringLike S>
-    constexpr void headers(const std::vector<S>& headers) noexcept requires is_2d_str_vec<T>
+    constexpr void headers(const std::vector<std::string>& headers) noexcept requires is_2d_str_vec<T>
     {
         if (headers.size() != menu_items_[0].size()) {
             throw std::invalid_argument("\nHeaders count mismatch");
@@ -328,8 +323,8 @@ public:
      *
      * @throws std::invalid_argument if # of headers does not match # num of columns
      */
-    template <StringLike string_l, typename... Args>
-    constexpr void headers(const string_l& header, Args&&... args) noexcept
+    template <typename... Args>
+    constexpr void headers(const std::string& header, Args&&... args) noexcept
     requires is_2d_str_vec<T>
     {
         header_.emplace_back(header);
@@ -427,8 +422,7 @@ public:
      * @note Does not check if there is multiple of the same response options. Will set index of first found only
      * @throws std::invalid_argument If argument does not match any menu choices
      */
-    template <StringLike string_l>
-    constexpr void response(const string_l& resp) requires is_1d_str_vec<T> {
+    constexpr void response(const std::string& resp) requires is_1d_str_vec<T> {
 
         const auto search_resp = this->find_menu_item(resp);
 
@@ -578,8 +572,7 @@ private:
     }
 
 
-    template <StringLike string_l>
-    constexpr std::string* find_menu_item(const string_l& search_item) const {
+    [[nodiscard]] constexpr std::string* find_menu_item(const std::string& search_item) const {
         for (const auto item : menu_items_) {
             if (item == search_item)
                 return &item;

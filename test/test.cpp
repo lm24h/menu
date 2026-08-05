@@ -20,10 +20,7 @@ int main() {
 
     menu.title("Restaurant Menu");
 
-    menu.headers(
-        "Item",
-        "Price"
-    );
+    menu.headers({"Item", "Price"});
 
     menu.separators(
         '-', 2,
