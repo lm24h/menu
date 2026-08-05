@@ -316,7 +316,7 @@ public:
             throw std::invalid_argument("\nHeaders count mismatch");
         }
         header_ = headers;
-        separators_.emplace_back({.index=1, .separator_char='-'});
+        separators_.push_back({.index=1, .separator_char='-'});
     }
 
 
@@ -694,7 +694,7 @@ template <>
 constexpr void Menu<std::vector<std::vector<std::string>>>::print_rows(
     print_helper<std::vector<std::vector<std::string>>> *const helper)
 {
-    if (this->headers().size()) this->print_header(helper);
+    if (!this->headers().empty()) this->print_header(helper);
 
     // Print Rows
     for (auto i{1uz}; i <= helper->items.size(); ++i) {
@@ -820,7 +820,7 @@ inline print_helper<std::vector<std::vector<std::string>>>::print_helper(const M
         auto test_column = get_col(items, i);
 
         // if there are headers then they need to be included in buffer calculation
-        if (const auto h = menu->headers(); h.size())
+        if (const auto h = menu->headers(); !h.empty())
             test_column.emplace_back(h.at(i));
 
         // Buffer is not necessary for last column
