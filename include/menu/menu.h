@@ -299,7 +299,7 @@ public:
     [[nodiscard]] constexpr T menu_items() const noexcept { return menu_items_; }
 
 
-    constexpr void append_menu_items(const std::vector<std::string>& row)
+    constexpr void emplace_back(const std::vector<std::string>& row)
     requires is_2d_str_vec<T> {
 
         if (row.size() != menu_items_[0].size())
