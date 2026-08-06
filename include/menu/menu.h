@@ -361,12 +361,16 @@ public:
      * @param headers describes a vector of column names
      *
      * @throws std::invalid_argument if the number of headers does not match the number of columns of menu.
+     * @throws std::runtime_error If menu is empty
      */
     constexpr void headers(const std::vector<std::string>& headers) noexcept requires is_2d_str_vec<T>
     {
-        if (headers.size() != menu_items_[0].size()) {
+        if (menu_items_.empty())
+            throw std::runtime_error("\nMenu must have contents to add header");
+
+        if (headers.size() != menu_items_[0].size())
             throw std::invalid_argument("\nHeaders count mismatch");
-        }
+
         header_ = headers;
         separators_.push_back({.index=1, .separator_char='-'});
     }
@@ -385,12 +389,18 @@ public:
     requires is_2d_str_vec<T>
     {
         header_.emplace_back(header);
+
         if constexpr (sizeof...(args) > 0) {
             headers(std::forward<Args>(args)...);
         }
 
+        if (menu_items_.empty()) {
+            header_.clear();
+            throw std::runtime_error("\nMenu must have contents to add header");
+        }
+
         if (header_.size() != menu_items_[0].size()) {
-            header_ = {};
+            header_.clear();
             throw std::invalid_argument("\nHeader count mismatch");
         }
 
