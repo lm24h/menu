@@ -321,6 +321,23 @@ public:
         menu_items_.emplace_back(row);
     }
 
+    /**
+     * Appends a row to the menu
+     * @param row data to be appended to menu
+     * @param args additional rows
+     *
+     * @throws std::invalid_argument If size of row != number of columns
+     */
+    template <typename... Args>
+    constexpr void emplace_back(const std::vector<std::string>& row, Args&&... args)
+    requires is_2d_str_vec<T> {
+
+        this->emplace_back(row);
+
+        if constexpr (sizeof...(args) > 0)
+            this->emplace_back(std::forward<Args>(args)...);
+    }
+
 
     /**
      * @brief sets headers for menu c
