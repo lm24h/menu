@@ -421,6 +421,12 @@ public:
 
 
     /**
+     * @return true if menu is empty, false O.W.
+     */
+    [[nodiscard]] constexpr bool empty() const noexcept { return menu_items_.empty(); }
+
+
+    /**
      * @brief Adds separators to menu. prints across entire width of menu
      *
      * @param sep_char Character to be printed for seperator
