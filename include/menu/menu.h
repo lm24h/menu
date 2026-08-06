@@ -312,6 +312,11 @@ public:
     constexpr void emplace_back(const std::vector<std::string>& row)
     requires is_2d_str_vec<T> {
 
+        if (menu_items_.empty()) {
+            menu_items_.emplace_back(row);
+            return;
+        }
+
         if (row.size() != menu_items_[0].size())
             throw std::invalid_argument(
                 "\nRow size ->(" + std::to_string(row.size()) + ") " +
@@ -324,18 +329,30 @@ public:
     /**
      * Appends a row to the menu
      * @param row data to be appended to menu
-     * @param args additional rows
+     * @param rows additional rows
      *
      * @throws std::invalid_argument If size of row != number of columns
      */
     template <typename... Args>
-    constexpr void emplace_back(const std::vector<std::string>& row, Args&&... args)
-    requires is_2d_str_vec<T> {
+    constexpr void emplace_back(const std::vector<std::string>& row, const Args&... rows)
+    requires (is_2d_str_vec<T> && (std::same_as<std::remove_cvref_t<Args>, std::vector<std::string>> && ...))
+    {
+        emplace_back(row);
+        (emplace_back(rows), ...);
+    }
 
-        this->emplace_back(row);
 
-        if constexpr (sizeof...(args) > 0)
-            this->emplace_back(std::forward<Args>(args)...);
+    /**
+     * Appends rows to the menu
+     * @param rows data to be appended to menu
+     *
+     * @throws std::invalid_argument If size of row != number of columns
+     */
+    constexpr void emplace_back(const std::initializer_list<std::vector<std::string>> rows)
+    requires is_2d_str_vec<T>
+    {
+        for (const auto & row : rows)
+            emplace_back(row);
     }
 
 

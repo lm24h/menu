@@ -19,6 +19,11 @@ int main() {
 
     Menu menu(items);
 
+    menu.emplace_back({
+        {"Sushi", "$10.97"},
+        {"BBQ", "$20.00"}
+    });
+
     menu.title("Restaurant Menu");
 
     menu.headers({"Item", "Price"});
