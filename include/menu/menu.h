@@ -299,6 +299,12 @@ public:
     [[nodiscard]] constexpr T menu_items() const noexcept { return menu_items_; }
 
 
+    /**
+     * Appends a row to the menu
+     * @param row data to be appended to menu
+     *
+     * @throws std::invalid_argument If size of row != number of columns
+     */
     constexpr void emplace_back(const std::vector<std::string>& row)
     requires is_2d_str_vec<T> {
 
@@ -310,6 +316,7 @@ public:
 
         menu_items_.emplace_back(row);
     }
+
 
     /**
      * @brief sets headers for menu c
@@ -598,6 +605,7 @@ private:
     std::vector<Separator<T>> separators_;
     std::optional<std::size_t> response_;
     std::optional<std::string> title_;
+    std::optional<std::vector<std::string>> extra_options_;
 
 };
 

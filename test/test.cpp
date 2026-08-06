@@ -13,7 +13,8 @@ int main() {
     std::vector<std::vector<std::string>> items{
         {"Burger", "$8.99"},
         {"Pizza", "$11.50"},
-        {"Salad", "$6.25"}
+        {"Salad", "$6.25"},
+        {"Exit", ""}
     };
 
     Menu menu(items);
@@ -24,7 +25,7 @@ int main() {
 
     menu.separators(
         '-', 2,
-        '=', 3
+        '=', 4
     );
 
     menu.print();
