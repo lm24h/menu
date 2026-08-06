@@ -461,8 +461,12 @@ public:
      * @param resp response in the form of an integer corresponding to selection
      *
      * @throws std::invalid_argument If response is less than 1 or greater than size of menu
+     * @throws std::runtime_error If response is already set
      */
     constexpr void response(const std::size_t resp) {
+
+        if (response_.has_value())
+            throw std::runtime_error("\nResponse already set, call reset_response() to clear");
 
         if (resp < 1 || resp > menu_items_.size())
             throw std::invalid_argument(
@@ -473,11 +477,14 @@ public:
         response_ = resp;
     }
 
+
     /**
      * @brief Sets user response to menu. do not include numbered index
      * @param resp response in the form of a string corresponding to selection
      * @note Does not check if there is multiple of the same response options. Will set index of first found only
      * @throws std::invalid_argument If argument does not match any menu choices
+     * @throws std::invalid_argument If response is less than 1 or greater than size of menu
+     * @throws std::runtime_error If response is already set
      */
     constexpr void response(const std::string& resp) requires is_1d_str_vec<T> {
 
@@ -487,7 +494,7 @@ public:
             throw std::invalid_argument("\nEntered Response ->(" + std::string(resp) + ") Not Found " );
         }
 
-        response_ = menu_items_.begin() + (search_resp - menu_items_.data());
+        response(menu_items_.begin() + (search_resp - menu_items_.data()));
     }
 
 
