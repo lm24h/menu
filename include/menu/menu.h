@@ -291,8 +291,12 @@ public:
     [[nodiscard]] constexpr std::string title(const std::string& or_val) const noexcept { return title_.value_or(or_val); }
 
 
-    /** @brief sets menu items for menu */
-    constexpr void menu_items(const T& menu_items) noexcept { menu_items_ = menu_items; }
+    /** @brief sets menu items for menu and clears the header and response */
+    constexpr void menu_items(const T& menu_items) noexcept {
+        response_ = std::nullopt;
+        header_.clear();
+        menu_items_ = menu_items;
+    }
 
 
     /** @returns menu items from menu as vector */
@@ -605,7 +609,6 @@ private:
     std::vector<Separator<T>> separators_;
     std::optional<std::size_t> response_;
     std::optional<std::string> title_;
-    std::optional<std::vector<std::string>> extra_options_;
 
 };
 
