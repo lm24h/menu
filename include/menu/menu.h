@@ -427,22 +427,22 @@ public:
 
 
     /**
-     * @brief Adds separators to menu. prints across entire width of menu
+     * @brief Adds separators to menu. prints across entire width of menu.
+     * If a separator already exists at specified index, function returns without assigning separator
      *
      * @param sep_char Character to be printed for seperator
      * @param index Determines where to print separator. Prints BEFORE index
      * @param args more arguments for index and character
      *
-     * @throws std::invalid_argument If a seperator already exist for an inputted index
-     * @throws std::invalid_argument If index is larger than menu size or index is 1
+     * @throws std::invalid_argument If index is larger than menu size or index is less than 1
      */
     template <typename... Args>
     constexpr void separators(const char sep_char, const std::size_t index, Args&&... args) {
 
         if (this->find_separator(index) != nullptr)
-            throw std::invalid_argument("\nSeperator already exists for: " + std::to_string(index));
+            return;
 
-        if (index > menu_items_.size() || index <= 1)
+        if (index > menu_items_.size() || index < 1)
             throw std::invalid_argument(
                 "\nEntered index ->(" + std::to_string(index) + ") outside acceptable range " +
                 "[2, menu_size->(" + std::to_string(menu_items_.size()) + ")]"
