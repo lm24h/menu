@@ -19,19 +19,16 @@ int main() {
 
     Menu menu(items);
 
-    menu.emplace_back({
-        {"Sushi", "$10.97"},
-        {"BBQ", "$20.00"}
-    });
-
     menu.title("Restaurant Menu");
 
     menu.headers({"Item", "Price"});
 
     menu.separators(
-        '-', 2,
         '=', 4
     );
+
+    menu.align(2, Align::RIGHT);
+    menu.align_header(2, Align::RIGHT);
 
     menu.print();
 

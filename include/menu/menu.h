@@ -7,6 +7,10 @@
 #include <vector>
 #include <iostream>
 
+
+typedef std::vector<std::string> str_vec_1d_t;
+typedef std::vector<std::vector<std::string>> str_vec_2d_t;
+
 template <typename T>
 concept is_2d_str_vec = std::is_same_v<std::decay_t<T>, std::vector<std::vector<std::string>>>;
 
@@ -19,6 +23,30 @@ concept is_menu_items = is_2d_str_vec<T> || is_1d_str_vec<T> ;
 
 template <typename T> requires is_menu_items<T>
 class Menu;
+
+template <typename T> requires is_menu_items<T>
+class print_helper;
+
+
+enum class Align {LEFT, RIGHT, CENTER};
+
+template <typename T> requires is_menu_items<T>
+struct col_dimensions : print_helper<T> {
+    col_dimensions(const std::size_t buff, const std::size_t pad) : buffer(buff), padding(pad) {}
+    std::size_t buffer;
+    std::size_t padding;
+
+};
+
+
+
+struct col_characteristics {
+    Align alignment{Align::LEFT};
+    Align header_alignment{Align::LEFT};
+    bool preceding_dots{false};
+};
+
+
 
 
 /**
@@ -41,8 +69,6 @@ struct Separator : Menu<T> {
     char separator_char;
 };
 
-
-
 enum class menu_error {
     none,
     header_count_mismatch,
@@ -60,6 +86,7 @@ class print_helper : Menu<T> {
 
 public:
 
+    print_helper() : width(), num_of_cols() {}
     /**
      * @note Constructor
      * @memberof print_helper
@@ -82,6 +109,8 @@ public:
      * @returns a completed row of the menu as a string with "\n" at end
      */
     [[nodiscard]] std::string build_row(std::size_t row_index) const;
+
+    [[nodiscard]] std::string build_row(size_t row_index, const std::vector<col_characteristics> &col_chrs) const;
 
 
     /**
@@ -106,8 +135,8 @@ public:
      */
     [[nodiscard]] constexpr std::size_t get_buffer_size(const std::string& title, const std::size_t additional=0) const {
         auto total_buffer{0uz};
-        for (const auto buffer : buffers) {
-            total_buffer += buffer;
+        for (const auto& col : col_dimensions_) {
+            total_buffer += col.buffer;
         }
         total_buffer += additional;
         return std::max(total_buffer, title.length());
@@ -195,19 +224,16 @@ public:
     /** @memberof print_helper. Stores the menu items */
     std::vector<std::vector<std::string>> items;
 
-    /** @memberof print_helper. Refers to the max length an item may be in each column + a constant buffer */
-    std::vector<std::size_t> buffers;
-
-    /** @memberof print_helper. Refers to the buffer size - length of menu item for each column of a row */
-    std::vector<uint8_t> padding;
+    std::vector<col_dimensions<T>> col_dimensions_;
 
     /** @memberof print_helper. Total width of the menu */
     std::size_t width;
 
     /** @memberof print_helper. Total number of columns */
     std::size_t num_of_cols;
-
 };
+
+
 
 template <typename T> requires is_menu_items<T>
 class Menu {
@@ -224,7 +250,18 @@ public:
      * @param menu_items container of strings to be the menu choices
      */
     explicit Menu(const T& menu_items) :
-        menu_items_(menu_items), header_({}), separators_({}) {}
+        menu_items_(menu_items), header_({}), separators_({})
+    {
+        if constexpr (std::is_same_v<T, str_vec_1d_t>) {
+            if (!menu_items.empty())
+                col_chrs_.resize(menu_items.size());
+        }
+        else if constexpr (std::is_same_v<T, str_vec_2d_t>) {
+            if (!menu_items.empty())
+                col_chrs_.resize(menu_items[0].size());
+        }
+
+    }
 
 
     /**
@@ -239,6 +276,9 @@ public:
     explicit Menu(const T& menu_items, const std::vector<std::string>& header) requires is_2d_str_vec<T> :
         menu_items_(menu_items), header_({}), separators_({})
     {
+        if (!menu_items.empty())
+            col_chrs_.resize(menu_items[0].size());
+
         try {
             this->headers(header);
         }
@@ -264,6 +304,9 @@ public:
     requires is_2d_str_vec<T> :
         menu_items_(menu_items), header_({}), separators_({})
     {
+        if (!menu_items.empty())
+            col_chrs_.resize(menu_items[0].size());
+
         try {
             this->headers(header, std::forward<Args>(args)...);
         }
@@ -301,6 +344,38 @@ public:
 
     /** @returns menu items from menu as vector */
     [[nodiscard]] constexpr T menu_items() const noexcept { return menu_items_; }
+
+
+    /**
+     * assigns alignment to a desired column
+     * @param column_index begins at 1 -> first column is 1
+     * @param alignment LEFT, RIGHT, CENTER
+     */
+    constexpr void align(const std::size_t column_index, const Align alignment) {
+        if (column_index > this->num_of_cols() || column_index < 2)
+            throw std::out_of_range(
+                "Entered col index ->(" + std::to_string(column_index) +
+                ") outside exceptable col range ->[2, " + std::to_string(this->num_of_cols()) + "]"
+            );
+
+        col_chrs_.at(column_index - 1).alignment = alignment;
+    }
+
+
+    /**
+     * assigns alignment to a desired header
+     * @param column_index begins at 1 -> first column is 1
+     * @param alignment LEFT, RIGHT, CENTER
+     */
+    constexpr void align_header(const std::size_t column_index, const Align alignment) {
+        if (column_index > this->num_of_cols() || column_index < 2)
+            throw std::out_of_range(
+                "Entered col index ->(" + std::to_string(column_index) +
+                ") outside exceptable col range ->[2, " + std::to_string(this->num_of_cols()) + "]"
+            );
+
+        col_chrs_.at(column_index - 1).header_alignment = alignment;
+    }
 
 
     /**
@@ -424,6 +499,16 @@ public:
      * @return true if menu is empty, false O.W.
      */
     [[nodiscard]] constexpr bool empty() const noexcept { return menu_items_.empty(); }
+
+
+    /**
+     * @return number of columns
+     */
+    [[nodiscard]] constexpr std::size_t num_of_cols() const noexcept {
+        if (menu_items_.empty())
+            return 0;
+        return menu_items_[0].size();
+    }
 
 
     /**
@@ -634,8 +719,21 @@ private:
         std::string row_str;
         /// for each column
         for (auto i{0uz}; i < helper->num_of_cols; ++i) {
-            /// build string for row with item at [row - 1, col] + padding for column
-            row_str.append(header_.at(i) + std::string(helper->buffers.at(i) - header_.at(i).length(), ' '));
+
+            switch (col_chrs_.at(i).header_alignment) {
+                case Align::LEFT:
+                    /// build string for row with item length at [row - 1, col] + padding for column
+                    row_str.append(
+                        header_.at(i) + std::string(helper->col_dimensions_.at(i).buffer - header_.at(i).length(), ' '));
+                    break;
+                case Align::RIGHT:
+                    // build string for row with padding for column + item length at [row - 1, col]
+                    row_str.append(
+                        std::string(helper->col_dimensions_.at(i).buffer - header_.at(i).length(), ' ') + header_.at(i));
+                    break;
+                default:;
+            }
+
         }
         row_str.append("\n");
         std::cout << row_str;
@@ -661,11 +759,16 @@ private:
     }
 
 
+    [[nodiscard]] constexpr std::vector<col_characteristics>& col_chrs() {return col_chrs_;}
+
+
     T menu_items_;
     std::vector<std::string> header_;
     std::vector<Separator<T>> separators_;
+    std::vector<col_characteristics> col_chrs_;
     std::optional<std::size_t> response_;
     std::optional<std::string> title_;
+
 
 };
 
@@ -687,7 +790,7 @@ const {
         /// If the index is less than the columns size
         if (row_index - 1 < items.at(i).size()) {
             /// build string for row with item at [col, row - 1] + padding for column
-            row_str.append(items.at(i).at(row_index-1) + std::string(padding.at(i), ' '));
+            row_str.append(items.at(i).at(row_index-1) + std::string(col_dimensions_.at(i).padding, ' '));
         }
     }
     row_str.append("\n");
@@ -700,13 +803,24 @@ const {
  */
 template <>
 [[nodiscard]] inline std::string print_helper<std::vector<std::vector<std::string>>>::build_row(
-    const std::size_t row_index)
+    const std::size_t row_index, const std::vector<col_characteristics>& col_chrs)
 const {
     std::string row_str;
     /// for each column
     for (uint8_t i = 0; i < num_of_cols; ++i) {
-        /// build string for row with item at [row - 1, col] + padding for column
-        row_str.append(items.at(row_index-1).at(i) + std::string(padding.at(i), ' '));
+
+        switch (col_chrs.at(i).alignment) {
+            case Align::LEFT:
+                /// build string for row with item at [row - 1, col] + padding for column
+                row_str.append(items.at(row_index-1).at(i) + std::string(col_dimensions_.at(i).padding, ' '));
+                break;
+            case Align::RIGHT:
+                /// build string for row with padding for column + item at [row - 1, col]
+                row_str.append(std::string(col_dimensions_.at(i).padding, ' ') + items.at(row_index-1).at(i));
+                break;
+            default:;
+        }
+
     }
     row_str.append("\n");
     return row_str;
@@ -718,7 +832,7 @@ const {
  */
 template <>
 inline void print_helper<std::vector<std::string>>::set_padding(const std::size_t row_index) {
-    padding = {};
+
     /// for each column
     for (uint8_t i = 0; i < num_of_cols; ++i) {
         /// if not the last column
@@ -726,15 +840,15 @@ inline void print_helper<std::vector<std::string>>::set_padding(const std::size_
             /// if row index is less than or equal to the size of the column
             if (row_index <= items.at(i).size()) {
                 /// padding = buffer - length of menu item
-                padding.emplace_back(buffers.at(i) - items.at(i).at(row_index-1).length());
+                col_dimensions_.at(i).padding = col_dimensions_.at(i).buffer - items.at(i).at(row_index-1).length();
             }
             else {
-                padding.emplace_back(0);
+                col_dimensions_.at(i).padding = 0;
             }
         }
         /// if the last column
         else if (i == num_of_cols - 1) {
-            padding.emplace_back(0);
+            col_dimensions_.at(i).padding = 0;
         }
     }
 }
@@ -744,18 +858,11 @@ inline void print_helper<std::vector<std::string>>::set_padding(const std::size_
  */
 template <>
 inline void print_helper<std::vector<std::vector<std::string>>>::set_padding(const std::size_t row_index) {
-    padding = {};
+
     /// for each column
     for (uint8_t i = 0; i < num_of_cols; ++i) {
-        /// if not the last column
-        if (i < num_of_cols - 1) {
-            /// padding = buffer - length of menu item
-            padding.emplace_back(buffers.at(i) - items.at(row_index-1).at(i).length());
-        }
-        /// if the last column
-        else if (i == num_of_cols - 1) {
-            padding.emplace_back(0);
-        }
+        /// padding = buffer - length of menu item
+        col_dimensions_.at(i).padding = col_dimensions_.at(i).buffer - items.at(row_index-1).at(i).length();
     }
 }
 /**
@@ -773,7 +880,7 @@ constexpr void Menu<std::vector<std::vector<std::string>>>::print_rows(
     for (auto i{1uz}; i <= helper->items.size(); ++i) {
         this->print_separator(helper->width, i);
         helper->set_padding(i);
-        std::cout << helper->build_row(i);
+        std::cout << helper->build_row(i, this->col_chrs());
     }
 }
 /**
@@ -805,6 +912,9 @@ constexpr void Menu<std::vector<std::string>>::print_rows(
 template <typename T> requires is_menu_items<T>
 constexpr void Menu<T>::print() {
     print_helper print_helper_(this);
+
+    std::cout << sizeof(print_helper_) << std::endl;
+    std::cout << sizeof(*this) << std::endl;
 
     this->print_title(&print_helper_);
     this->print_separator(&print_helper_);
@@ -854,7 +964,7 @@ inline print_helper<std::vector<std::string>>::print_helper(const Menu * const m
 
         // create the first column and calculate buffer
         items.emplace_back(menu_items.begin(), menu_items.begin() + it_positions[0]);
-        buffers.emplace_back(max_length_in_items(items[0]) + 8);
+        col_dimensions_.emplace_back(max_length_in_items(items[0]) + 8, 0);
 
         /*
          * This loop only applies if num_of_cols >= 3.
@@ -862,7 +972,7 @@ inline print_helper<std::vector<std::string>>::print_helper(const Menu * const m
          */
         for (uint8_t i = 0; i < num_of_cols - 2; ++i) {
             items.emplace_back(menu_items.begin() + it_positions[i], menu_items.begin() + it_positions[i+1]);
-            buffers.emplace_back(max_length_in_items(items[i + 1]) + 8);
+            col_dimensions_.emplace_back(max_length_in_items(items[i + 1]) + 8, 0);
         }
 
         // create the last column. buffer not necessary
@@ -896,12 +1006,7 @@ inline print_helper<std::vector<std::vector<std::string>>>::print_helper(const M
         if (const auto h = menu->headers(); !h.empty())
             test_column.emplace_back(h.at(i));
 
-        // Buffer is not necessary for last column
-        if (i == num_of_cols - 1) {
-            buffers.emplace_back(max_length_in_items(test_column));
-        }
-        else
-            buffers.emplace_back(max_length_in_items(test_column) + 8);
+        col_dimensions_.emplace_back(max_length_in_items(test_column) + 8, 0);
     }
 
     width = this->get_buffer_size(menu->title());
