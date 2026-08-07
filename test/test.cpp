@@ -25,12 +25,14 @@ int main() {
         '=', 4
     );
 
-    menu.align(2, Align::RIGHT);
-    menu.align_header(2, Align::RIGHT);
+    menu.align(1, Align::RIGHT);
+    menu.align_header(1, Align::RIGHT);
 
     menu.print();
 
     menu.response(2);
 
     std::cout << "Integer Response: " << menu.response() << "\n";
+    std::cout << "Size of Menu: " << sizeof(menu) << " bytes\n";
+
 }
