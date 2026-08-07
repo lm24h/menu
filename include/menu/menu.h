@@ -2,7 +2,6 @@
 #define MENU_LIBRARY_H
 #include <cstdint>
 #include <string>
-#include <optional>
 #include <vector>
 #include <iostream>
 
@@ -69,9 +68,12 @@ struct Separator {
 };
 
 
-enum class menu_error {
+enum class menu_error_t {
     none,
     header_count_mismatch,
+    response_already_set,
+    not_in_range,
+    uninitialized
 };
 
 
@@ -300,6 +302,7 @@ inline void print_helper<std::vector<std::string>>::set_padding(const std::size_
 
     /// for each column
     for (auto i{0uz}; i < num_of_cols; ++i) {
+
         /// if not the last column
         if (i < num_of_cols - 1) {
             /// if row index is less than or equal to the size of the column
@@ -337,47 +340,82 @@ template <>
 class Menu<str_vec_1d_t> {
 public:
 
-    Menu()=default;
-    ~Menu()=default;
+    ~Menu() {
 
+        menu_item_stack_.free_stack();
+
+        delete title_;
+        delete response_;
+    }
 
     /**
-     * @brief header and separators remain empty
+     * Initializes menu if argument is not empty
+     * @brief title and response remain empty
      * @param menu_items container of strings to be the menu choices
      */
-    explicit Menu(str_vec_1d_t  menu_items) : menu_items_(std::move(menu_items)) {}
+    explicit Menu(const str_vec_1d_t &menu_items) :
+        title_(new std::string{}), response_(new std::size_t{})
+    {
+        this->menu_items(menu_items);
+    }
+
+    /**
+     * Initializes menu if argument is not empty
+     * @brief response remains empty
+     * @param menu_items container of strings to be the menu choices
+     * @param title value to be title
+     */
+    explicit Menu(const str_vec_1d_t &menu_items, const std::string& title) :
+        title_(new std::string(title)), response_(new std::size_t{})
+    {
+        this->menu_items(menu_items);
+    }
 
 
     /** @brief Sets title for menu */
-    constexpr void title(const std::string& title) noexcept { title_ = title; }
+    constexpr void title(const std::string& title) noexcept { *title_ = title; }
 
-    /** @returns title for menu or empty string if title not set */
-    [[nodiscard]] constexpr std::string title() const noexcept { return title_.value_or(""); }
+    /** @returns title for menu */
+    [[nodiscard]] constexpr std::string title() const noexcept { return *title_; }
+
 
     /**
-     * @param or_val value to be returned if title is not set
-     * @returns title for menu or the or_val
+     * @brief sets menu items for menu and clears response
+     * @return none -- argument is not empty \n
+     * @return uninitialized -- argument is empty
      */
-    [[nodiscard]] constexpr std::string title(const std::string& or_val) const noexcept { return title_.value_or(or_val); }
+    constexpr menu_error_t menu_items(const str_vec_1d_t& menu_items) noexcept {
+        *response_ = 0;
+        if (!menu_items.empty()) {
 
-    /** @brief sets menu items for menu and clears the header and response */
-    constexpr void menu_items(const str_vec_1d_t& menu_items) noexcept {
-        response_ = std::nullopt;
-        menu_items_ = menu_items;
+            menu_item_stack_.init(menu_items.size());
+            menu_item_stack_.set_values(menu_items);
+
+            return menu_error_t::none;
+        }
+        return menu_error_t::uninitialized;
     }
 
     /** @returns menu items from menu as vector */
-    [[nodiscard]] constexpr str_vec_1d_t menu_items() const noexcept { return menu_items_; }
+    [[nodiscard]] constexpr str_vec_1d_t menu_items() const noexcept {
+
+        str_vec_1d_t menu_items = {};
+
+        for (auto i{0uz}; i < size(); ++i) {
+            menu_items.emplace_back(*menu_item_stack_.at(i));
+        }
+        return menu_items;
+    }
 
     /**
      * @return number of menu items
      */
-    [[nodiscard]] constexpr auto size() const noexcept { return menu_items_.size(); }
+    [[nodiscard]] constexpr std::size_t size() const noexcept { return menu_item_stack_.size(); }
 
     /**
      * @return true if menu is empty, false O.W.
      */
-    [[nodiscard]] constexpr bool empty() const noexcept { return menu_items_.empty(); }
+    [[nodiscard]] constexpr bool empty() const noexcept { return menu_item_stack_.empty(); }
 
     /**
      * @brief Sets user response to menu
@@ -388,16 +426,17 @@ public:
      */
     constexpr void response(const std::size_t resp) {
 
-        if (response_.has_value())
-            throw std::runtime_error("\nResponse already set, call reset_response() to clear");
+        if (*response_ != 0)
+            throw std::runtime_error("\nResponse already set ->(" + std::to_string(*response_) +
+                "), call reset_response() to clear");
 
-        if (resp < 1 || resp > menu_items_.size())
+        if (resp < 1 || resp > this->size())
             throw std::invalid_argument(
                 "\nEntered response ->(" + std::to_string(resp) + ") outside acceptable range " +
-                "[1, menu_size->(" + std::to_string(menu_items_.size()) + ")]"
+                "[1, menu_size->(" + std::to_string(this->size()) + ")]"
             );
 
-        response_ = resp;
+        *response_ = resp;
     }
 
 
@@ -417,7 +456,7 @@ public:
             throw std::invalid_argument("\nEntered Response ->(" + std::string(resp) + ") Not Found " );
         }
 
-        response(search_resp_ptr - menu_items_.data());
+        response(search_resp_ptr - menu_item_stack_.base());
     }
 
 
@@ -427,8 +466,8 @@ public:
      */
     [[nodiscard]] constexpr std::size_t response() const {
 
-        if (response_.has_value())
-            return response_.value();
+        if (*response_ != 0)
+            return *response_;
 
         throw std::runtime_error("\nResponse not set");
     }
@@ -439,8 +478,8 @@ public:
      */
     [[nodiscard]] constexpr std::string response_as_menu_item() const {
 
-        if (response_.has_value())
-            return menu_items_[response_.value() - 1];
+        if (*response_ != 0)
+            return *(menu_item_stack_.base() + *response_ - 1);
 
         throw std::runtime_error("\nResponse not set");
     }
@@ -449,32 +488,83 @@ public:
      * Clears all menu items, all separators, title, header(if applicable), and response
      */
     constexpr void reset() noexcept {
-        menu_items_.clear();
+        menu_item_stack_.clear_menu_items();
         reset_response();
-        title_ = std::nullopt;
+        *title_ = std::string("");
     }
 
     /**
      * Clears response only
      */
-    constexpr void reset_response() noexcept { response_ = std::nullopt; }
+    constexpr void reset_response() noexcept { *response_ = 0; }
 
     /** @overload constexpr void print() */
     constexpr void print() const {
         print_helper print_helper_(this);
 
         this->print_title(&print_helper_);
-        std::cout << std::string(print_helper_.width, '~');
+        std::cout << std::string(print_helper_.width, '~') << "\n";
         this->print_rows(&print_helper_);
-        std::cout << std::string(print_helper_.width, '~');
+        std::cout << std::string(print_helper_.width, '~') << "\n";
     }
 
 
 private:
 
-    str_vec_1d_t menu_items_;
-    std::optional<std::string> title_;
-    std::optional<std::size_t> response_;
+    struct Menu_Item_Stack {
+        Menu_Item_Stack() : Sptr(nullptr), Bptr(nullptr) {}
+
+        constexpr void init(const std::size_t size) noexcept {
+            Bptr = static_cast<std::string*>(malloc(sizeof(std::string) * size));
+            Sptr = Bptr;
+        }
+
+        constexpr void set_values(const str_vec_1d_t& menu_items) noexcept {
+            new (Sptr) std::string{menu_items[0]};
+
+            for (auto i{1uz}; i < menu_items.size(); ++i) {
+                new (++Sptr) std::string{menu_items.at(i)};
+            }
+        }
+
+        [[nodiscard]] constexpr std::string* at(const std::size_t index) const noexcept {
+            if (!empty() && index < size())
+                return Bptr + index;
+            return nullptr;
+        }
+
+        [[nodiscard]] constexpr std::size_t size() const noexcept {
+            if (empty())
+                return 0;
+            return Sptr - Bptr + 1;
+        }
+
+        [[nodiscard]] constexpr bool empty() const noexcept { return Bptr == nullptr || Sptr == nullptr; }
+
+        [[nodiscard]] constexpr std::string* base() const noexcept { return Bptr; }
+
+        constexpr void clear_menu_items() {
+            for (auto i{0uz}; i < size(); ++i) {
+                Bptr[i].~basic_string();
+            }
+            Sptr = Bptr;
+        }
+
+        constexpr void free_stack() noexcept {
+            clear_menu_items();
+            free(Bptr);
+        }
+
+        private:
+        std::string* Sptr;
+        std::string* Bptr;
+    };
+
+    Menu_Item_Stack menu_item_stack_;
+    std::string* const title_;
+    std::size_t* const response_;
+
+
 
     /**
      * @brief prints title row. title is centered. If title has no value function just prints a newline
@@ -482,19 +572,16 @@ private:
      */
     void print_title(const print_helper<str_vec_1d_t> * helper) const {
         // Print title if title is assigned a value
-        if (title_.has_value()) {
-            std::cout
+        std::cout
                 << "\n"
-                << print_helper<std::vector<std::string>>::center(title_.value(), helper->width)
+                << print_helper<std::vector<std::string>>::center(*title_, helper->width)
                 << "\n";
-        }
-        else std::cout << "\n";
     }
 
     [[nodiscard]] constexpr const std::string * find_menu_item(const std::string &search_item) const {
-        for (auto i{0uz}; i < menu_items_.size(); ++i) {
-            if (menu_items_[i] == search_item)
-                return &menu_items_[i];
+        for (auto i{0uz}; i < this->size(); ++i) {
+            if (*menu_item_stack_.at(i) == search_item)
+                return menu_item_stack_.at(i);
         }
         return nullptr;
     }
@@ -507,7 +594,7 @@ private:
     constexpr void print_rows( print_helper<str_vec_1d_t> *const helper ) const {
         if (helper->num_of_cols == 1) {
             for (uint8_t i{0}; i < static_cast<uint8_t>(this->size()); ++i) {
-                std::cout << i + 1 << ") " << menu_items_[i] << "\n";
+                std::cout << i + 1 << ") " << *menu_item_stack_.at(i) << "\n";
             }
         }
         else {
@@ -519,6 +606,7 @@ private:
         }
     }
 };
+
 template <>
 class Menu<str_vec_2d_t> {
 
@@ -1100,7 +1188,7 @@ inline print_helper<str_vec_1d_t>::print_helper(const Menu<str_vec_1d_t> * const
     }
 
 
-    if (num_of_cols >= 2) {
+    if (num_of_cols > 1) {
 
         // create the first column and calculate buffer
         items.emplace_back(menu_items.begin(), menu_items.begin() + it_positions[0]);
@@ -1117,8 +1205,9 @@ inline print_helper<str_vec_1d_t>::print_helper(const Menu<str_vec_1d_t> * const
 
         // create the last column. buffer not necessary
         items.emplace_back(menu_items.begin() + it_positions[num_of_cols - 2], menu_items.end());
+        col_dimensions_.emplace_back(max_length_in_items(items[num_of_cols - 1]), 0);
 
-        width = this->get_buffer_size(menu->title(), max_length_in_items(items[num_of_cols - 1]));
+        width = this->get_buffer_size(menu->title());
     }
     else
         width = this->get_buffer_size(menu->title(), max_length_in_items(menu_items));
