@@ -5,8 +5,6 @@
 #include <vector>
 #include <string>
 
-#define TEST_VALUE1 5
-#define TEST_VALUE2 30
 
 int main() {
 
@@ -14,10 +12,10 @@ int main() {
         {"Burger", "$8.99"},
         {"Pizza", "$11.50"},
         {"Salad", "$6.25"},
-        {"Exit", ""}
     };
 
-    Menu menu(items);
+    Menu<str_vec_2d_t> menu(items);
+    menu.emplace_back({"EXIT", ""});
 
     menu.title("Restaurant Menu");
 

@@ -1,7 +1,6 @@
 #ifndef MENU_LIBRARY_H
 #define MENU_LIBRARY_H
 #include <cstdint>
-#include <expected>
 #include <string>
 #include <optional>
 #include <vector>
@@ -24,14 +23,17 @@ concept is_menu_items = is_2d_str_vec<T> || is_1d_str_vec<T> ;
 template <typename T> requires is_menu_items<T>
 class Menu;
 
-template <typename T> requires is_menu_items<T>
-class print_helper;
+template <>
+class Menu<str_vec_2d_t>;
+
+template <>
+class Menu<str_vec_1d_t>;
 
 
 enum class Align {LEFT, RIGHT, CENTER};
 
-template <typename T> requires is_menu_items<T>
-struct col_dimensions : print_helper<T> {
+
+struct col_dimensions {
     col_dimensions(const std::size_t buff, const std::size_t pad) : buffer(buff), padding(pad) {}
     std::size_t buffer;
     std::size_t padding;
@@ -45,8 +47,6 @@ struct col_characteristics {
     Align header_alignment{Align::LEFT};
     bool preceding_dots{false};
 };
-
-
 
 
 /**
@@ -69,6 +69,7 @@ struct Separator : Menu<T> {
     char separator_char;
 };
 
+
 enum class menu_error {
     none,
     header_count_mismatch,
@@ -82,7 +83,7 @@ enum class menu_error {
  * Represents the two menu types
  */
 template <typename T> requires is_menu_items<T>
-class print_helper : Menu<T> {
+class print_helper {
 
 public:
 
@@ -224,7 +225,7 @@ public:
     /** @memberof print_helper. Stores the menu items */
     std::vector<std::vector<std::string>> items;
 
-    std::vector<col_dimensions<T>> col_dimensions_;
+    std::vector<col_dimensions> col_dimensions_;
 
     /** @memberof print_helper. Total width of the menu */
     std::size_t width;
@@ -234,9 +235,296 @@ public:
 };
 
 
+template <>
+print_helper<str_vec_2d_t>::print_helper(const Menu<str_vec_2d_t> * menu);
+template <>
+print_helper<str_vec_1d_t>::print_helper(const Menu<str_vec_1d_t> * menu);
 
-template <typename T> requires is_menu_items<T>
-class Menu {
+
+/**
+* @overload std::string build_row(const std::size_t row_index) const
+* @memberof print_helper<std::vector<std::string>>
+ */
+template <>
+[[nodiscard]] inline std::string print_helper<std::vector<std::string>>::build_row(
+    const std::size_t row_index)
+const {
+    std::string row_str;
+    /// for each column
+    for (auto i{0uz}; i < num_of_cols; ++i) {
+        /// If the index is less than the columns size
+        if (row_index - 1 < items.at(i).size()) {
+            /// build string for row with item at [col, row - 1] + padding for column
+            row_str.append(items.at(i).at(row_index-1) + std::string(col_dimensions_.at(i).padding, ' '));
+        }
+    }
+    row_str.append("\n");
+    return row_str;
+}
+/**
+* @overload std::string build_row(const std::size_t row_index) const
+* @memberof print_helper<std::vector<std::vector<std::string>>>
+ */
+template <>
+[[nodiscard]] inline std::string print_helper<std::vector<std::vector<std::string>>>::build_row(
+    const std::size_t row_index, const std::vector<col_characteristics>& col_chrs)
+const {
+    std::string row_str;
+    /// for each column
+    for (auto i{0uz}; i < num_of_cols; ++i) {
+
+        switch (col_chrs.at(i).alignment) {
+            case Align::LEFT:
+                /// build string for row with item at [row - 1, col] + padding for column
+                row_str.append(items.at(row_index-1).at(i) + std::string(col_dimensions_.at(i).padding, ' '));
+                break;
+            case Align::RIGHT:
+                /// build string for row with padding for column + item at [row - 1, col]
+                row_str.append(std::string(col_dimensions_.at(i).padding, ' ') + items.at(row_index-1).at(i));
+                break;
+            default:;
+        }
+
+    }
+    row_str.append("\n");
+    return row_str;
+}
+
+
+
+/**
+ * @overload void set_padding(const std::size_t row_index)
+ * @memberof print_helper<std::vector<std::string>>
+ */
+template <>
+inline void print_helper<std::vector<std::string>>::set_padding(const std::size_t row_index) {
+
+    /// for each column
+    for (auto i{0uz}; i < num_of_cols; ++i) {
+        /// if not the last column
+        if (i < num_of_cols - 1) {
+            /// if row index is less than or equal to the size of the column
+            if (row_index <= items.at(i).size()) {
+                /// padding = buffer - length of menu item
+                col_dimensions_.at(i).padding = col_dimensions_.at(i).buffer - items.at(i).at(row_index-1).length();
+            }
+            else {
+                col_dimensions_.at(i).padding = 0;
+            }
+        }
+        /// if the last column
+        else if (i == num_of_cols - 1) {
+            col_dimensions_.at(i).padding = 0;
+        }
+    }
+}
+/**
+ * @overload void set_padding(const std::size_t row_index)
+ * @memberof print_helper<std::vector<std::vector<std::string>>>
+ */
+template <>
+inline void print_helper<std::vector<std::vector<std::string>>>::set_padding(const std::size_t row_index) {
+
+    /// for each column
+    for (auto i{0uz}; i < num_of_cols; ++i) {
+        /// padding = buffer - length of menu item
+        col_dimensions_.at(i).padding = col_dimensions_.at(i).buffer - items.at(row_index-1).at(i).length();
+    }
+}
+
+
+template <>
+class Menu<str_vec_1d_t> {
+public:
+
+    Menu()=default;
+    ~Menu()=default;
+
+
+    /**
+     * @brief header and separators remain empty
+     * @param menu_items container of strings to be the menu choices
+     */
+    explicit Menu(str_vec_1d_t  menu_items) : menu_items_(std::move(menu_items)) {}
+
+
+    /** @brief Sets title for menu */
+    constexpr void title(const std::string& title) noexcept { title_ = title; }
+
+    /** @returns title for menu or empty string if title not set */
+    [[nodiscard]] constexpr std::string title() const noexcept { return title_.value_or(""); }
+
+    /**
+     * @param or_val value to be returned if title is not set
+     * @returns title for menu or the or_val
+     */
+    [[nodiscard]] constexpr std::string title(const std::string& or_val) const noexcept { return title_.value_or(or_val); }
+
+    /** @brief sets menu items for menu and clears the header and response */
+    constexpr void menu_items(const str_vec_1d_t& menu_items) noexcept {
+        response_ = std::nullopt;
+        menu_items_ = menu_items;
+    }
+
+    /** @returns menu items from menu as vector */
+    [[nodiscard]] constexpr str_vec_1d_t menu_items() const noexcept { return menu_items_; }
+
+    /**
+     * @return number of menu items
+     */
+    [[nodiscard]] constexpr auto size() const noexcept { return menu_items_.size(); }
+
+    /**
+     * @return true if menu is empty, false O.W.
+     */
+    [[nodiscard]] constexpr bool empty() const noexcept { return menu_items_.empty(); }
+
+    /**
+     * @brief Sets user response to menu
+     * @param resp response in the form of an integer corresponding to selection
+     *
+     * @throws std::invalid_argument If response is less than 1 or greater than size of menu
+     * @throws std::runtime_error If response is already set
+     */
+    constexpr void response(const std::size_t resp) {
+
+        if (response_.has_value())
+            throw std::runtime_error("\nResponse already set, call reset_response() to clear");
+
+        if (resp < 1 || resp > menu_items_.size())
+            throw std::invalid_argument(
+                "\nEntered response ->(" + std::to_string(resp) + ") outside acceptable range " +
+                "[1, menu_size->(" + std::to_string(menu_items_.size()) + ")]"
+            );
+
+        response_ = resp;
+    }
+
+
+    /**
+     * @brief Sets user response to menu. do not include numbered index
+     * @param resp response in the form of a string corresponding to selection
+     * @note Does not check if there is multiple of the same response options. Will set index of first found only
+     * @throws std::invalid_argument If argument does not match any menu choices
+     * @throws std::invalid_argument If response is less than 1 or greater than size of menu
+     * @throws std::runtime_error If response is already set
+     */
+    constexpr void response(const std::string& resp) {
+
+        const auto search_resp_ptr = this->find_menu_item(resp);
+
+        if (search_resp_ptr == nullptr) {
+            throw std::invalid_argument("\nEntered Response ->(" + std::string(resp) + ") Not Found " );
+        }
+
+        response(search_resp_ptr - menu_items_.data());
+    }
+
+
+    /**
+     * @throws std::runtime_error if response has not been set
+     * @return response as integer
+     */
+    [[nodiscard]] constexpr std::size_t response() const {
+
+        if (response_.has_value())
+            return response_.value();
+
+        throw std::runtime_error("\nResponse not set");
+    }
+
+    /**
+     * @throws std::runtime_error if response has not been set
+     * @return response as the corresponding menu item string
+     */
+    [[nodiscard]] constexpr std::string response_as_menu_item() const {
+
+        if (response_.has_value())
+            return menu_items_[response_.value() - 1];
+
+        throw std::runtime_error("\nResponse not set");
+    }
+
+    /**
+     * Clears all menu items, all separators, title, header(if applicable), and response
+     */
+    constexpr void reset() noexcept {
+        menu_items_.clear();
+        reset_response();
+        title_ = std::nullopt;
+    }
+
+    /**
+     * Clears response only
+     */
+    constexpr void reset_response() noexcept { response_ = std::nullopt; }
+
+    /** @overload constexpr void print() */
+    constexpr void print() const {
+        print_helper<str_vec_1d_t> print_helper_(this);
+
+        std::cout << sizeof(print_helper_) << std::endl;
+        std::cout << sizeof(*this) << std::endl;
+
+        this->print_title(&print_helper_);
+        std::cout << std::string(print_helper_.width, '~');
+        this->print_rows(&print_helper_);
+        std::cout << std::string(print_helper_.width, '~');
+
+    }
+
+
+private:
+
+    str_vec_1d_t menu_items_;
+    std::optional<std::string> title_;
+    std::optional<std::size_t> response_;
+
+    /**
+     * @brief prints title row. title is centered. If title has no value function just prints a newline
+     * @param helper
+     */
+    void print_title(const print_helper<str_vec_1d_t> * helper) const {
+        // Print title if title is assigned a value
+        if (title_.has_value()) {
+            std::cout
+                << "\n"
+                << print_helper<std::vector<std::string>>::center(title_.value(), helper->width)
+                << "\n";
+        }
+        else std::cout << "\n";
+    }
+
+    [[nodiscard]] constexpr const std::string * find_menu_item(const std::string &search_item) const {
+        for (auto i{0uz}; i < menu_items_.size(); ++i) {
+            if (menu_items_[i] == search_item)
+                return &menu_items_[i];
+        }
+        return nullptr;
+    }
+
+    /**
+ * @memberof Menu<std::vector<std::string>>
+ * @param helper pointer to print_helper object
+ * @brief prints all rows of menu
+ */
+    constexpr void print_rows( print_helper<str_vec_1d_t> *const helper ) const {
+        if (helper->num_of_cols == 1) {
+            for (uint8_t i{0}; i < static_cast<uint8_t>(this->size()); ++i) {
+                std::cout << i + 1 << ") " << menu_items_[i] << "\n";
+            }
+        }
+        else {
+            // Print Rows
+            for (auto i{1uz}; i <= helper->items[0].size(); ++i) {
+                helper->set_padding(i);
+                std::cout << helper->build_row(i);
+            }
+        }
+    }
+};
+template <>
+class Menu<str_vec_2d_t> {
 
 public:
 
@@ -249,18 +537,11 @@ public:
      * @brief header and separators remain empty
      * @param menu_items container of strings to be the menu choices
      */
-    explicit Menu(const T& menu_items) :
+    explicit Menu(const str_vec_2d_t& menu_items) :
         menu_items_(menu_items), header_({}), separators_({})
     {
-        if constexpr (std::is_same_v<T, str_vec_1d_t>) {
-            if (!menu_items.empty())
-                col_chrs_.resize(menu_items.size());
-        }
-        else if constexpr (std::is_same_v<T, str_vec_2d_t>) {
-            if (!menu_items.empty())
-                col_chrs_.resize(menu_items[0].size());
-        }
-
+        if (!menu_items.empty())
+            col_chrs_.resize(menu_items[0].size());
     }
 
 
@@ -273,7 +554,7 @@ public:
      * @throws std::invalid_argument if the number of headers does not match the number of columns of menu.
      * headers and separators will remain empty
      */
-    explicit Menu(const T& menu_items, const std::vector<std::string>& header) requires is_2d_str_vec<T> :
+    explicit Menu(const str_vec_2d_t& menu_items, const std::vector<std::string>& header) :
         menu_items_(menu_items), header_({}), separators_({})
     {
         if (!menu_items.empty())
@@ -300,8 +581,7 @@ public:
      * headers and separators will remain empty
      */
     template <typename... Args>
-    explicit Menu(const std::string& header, Args&&... args, const T& menu_items)
-    requires is_2d_str_vec<T> :
+    explicit Menu(const std::string& header, Args&&... args, const str_vec_2d_t& menu_items) :
         menu_items_(menu_items), header_({}), separators_({})
     {
         if (!menu_items.empty())
@@ -335,7 +615,7 @@ public:
 
 
     /** @brief sets menu items for menu and clears the header and response */
-    constexpr void menu_items(const T& menu_items) noexcept {
+    constexpr void menu_items(const str_vec_2d_t& menu_items) noexcept {
         response_ = std::nullopt;
         header_.clear();
         menu_items_ = menu_items;
@@ -343,7 +623,7 @@ public:
 
 
     /** @returns menu items from menu as vector */
-    [[nodiscard]] constexpr T menu_items() const noexcept { return menu_items_; }
+    [[nodiscard]] constexpr str_vec_2d_t menu_items() const noexcept { return menu_items_; }
 
 
     /**
@@ -384,8 +664,7 @@ public:
      *
      * @throws std::invalid_argument If size of row != number of columns
      */
-    constexpr void emplace_back(const std::vector<std::string>& row)
-    requires is_2d_str_vec<T> {
+    constexpr void emplace_back(const std::vector<std::string>& row) {
 
         if (menu_items_.empty()) {
             menu_items_.emplace_back(row);
@@ -410,7 +689,7 @@ public:
      */
     template <typename... Args>
     constexpr void emplace_back(const std::vector<std::string>& row, const Args&... rows)
-    requires (is_2d_str_vec<T> && (std::same_as<std::remove_cvref_t<Args>, std::vector<std::string>> && ...))
+    requires (std::same_as<std::remove_cvref_t<Args>, std::vector<std::string>> && ...)
     {
         emplace_back(row);
         (emplace_back(rows), ...);
@@ -424,7 +703,6 @@ public:
      * @throws std::invalid_argument If size of row != number of columns
      */
     constexpr void emplace_back(const std::initializer_list<std::vector<std::string>> rows)
-    requires is_2d_str_vec<T>
     {
         for (const auto & row : rows)
             emplace_back(row);
@@ -438,7 +716,7 @@ public:
      * @throws std::invalid_argument if the number of headers does not match the number of columns of menu.
      * @throws std::runtime_error If menu is empty
      */
-    constexpr void headers(const std::vector<std::string>& headers) noexcept requires is_2d_str_vec<T>
+    constexpr void headers(const std::vector<std::string>& headers)
     {
         if (menu_items_.empty())
             throw std::runtime_error("\nMenu must have contents to add header");
@@ -460,8 +738,7 @@ public:
      * @throws std::invalid_argument if # of headers does not match # num of columns
      */
     template <typename... Args>
-    constexpr void headers(const std::string& header, Args&&... args) noexcept
-    requires is_2d_str_vec<T>
+    constexpr void headers(const std::string& header, Args&&... args)
     {
         header_.emplace_back(header);
 
@@ -553,7 +830,7 @@ public:
             separators_.erase(separators_.begin() + (sep - separators_.data()));
 
         if constexpr (sizeof...(args) > 0)
-            separators(std::forward<Args>(args)...);
+            remove_separators_at(std::forward<Args>(args)...);
     }
 
 
@@ -578,27 +855,6 @@ public:
         response_ = resp;
     }
 
-
-    /**
-     * @brief Sets user response to menu. do not include numbered index
-     * @param resp response in the form of a string corresponding to selection
-     * @note Does not check if there is multiple of the same response options. Will set index of first found only
-     * @throws std::invalid_argument If argument does not match any menu choices
-     * @throws std::invalid_argument If response is less than 1 or greater than size of menu
-     * @throws std::runtime_error If response is already set
-     */
-    constexpr void response(const std::string& resp) requires is_1d_str_vec<T> {
-
-        const auto search_resp = this->find_menu_item(resp);
-
-        if (search_resp == nullptr) {
-            throw std::invalid_argument("\nEntered Response ->(" + std::string(resp) + ") Not Found " );
-        }
-
-        response(menu_items_.begin() + (search_resp - menu_items_.data()));
-    }
-
-
     /**
      * @throws std::runtime_error if response has not been set
      * @return response as integer
@@ -607,19 +863,6 @@ public:
 
         if (response_.has_value())
             return response_.value();
-
-        throw std::runtime_error("\nResponse not set");
-    }
-
-
-    /**
-     * @throws std::runtime_error if response has not been set
-     * @return response as the corresponding menu item string
-     */
-    [[nodiscard]] constexpr std::string response_as_menu_item() const requires is_1d_str_vec<T> {
-
-        if (response_.has_value())
-            return menu_items_[response_.value() - 1];
 
         throw std::runtime_error("\nResponse not set");
     }
@@ -667,7 +910,17 @@ public:
  * @brief prints entire menu include title, separators, and rows containing the menu items
  * @note separators are printed BEFORE the entered index
  */
-    constexpr void print();
+    constexpr void print() {
+        print_helper<str_vec_2d_t> print_helper_(this);
+
+        std::cout << sizeof(print_helper_) << std::endl;
+        std::cout << sizeof(*this) << std::endl;
+
+        this->print_title(&print_helper_);
+        std::cout << std::string(print_helper_.width, '~') << "\n";
+        this->print_rows(&print_helper_);
+        std::cout << std::string(print_helper_.width, '~') << "\n";
+    }
 
 
 private:
@@ -679,7 +932,7 @@ private:
      * @brief prints separator
      */
     void print_separator(const std::size_t width, const std::size_t row_index) {
-        const Separator<T> *const sep = this->find_separator(row_index);
+        const Separator<str_vec_2d_t> *const sep = this->find_separator(row_index);
         if (sep == nullptr) return;
         std::cout << std::string(width, sep->separator_char) << "\n";
     }
@@ -688,21 +941,35 @@ private:
      * @param row_index used to identify Separator struct
      * @return pointer to separator struct for passed index, else nullptr if not found
      */
-    Separator<T>* find_separator(const std::size_t row_index) noexcept {
+    Separator<str_vec_2d_t>* find_separator(const std::size_t row_index) noexcept {
         for (auto& item : separators_) {
             if (item.index == row_index) return &item;
         }
         return nullptr;
     }
 
-    /** @brief Prints all rows of menu */
-    constexpr void print_rows(print_helper<T> * helper);
+    /**
+ * @memberof Menu<std::vector<std::vector<std::string>>>
+ * @param helper pointer to print_helper object
+ * @brief prints all rows of menu
+ */
+    constexpr void print_rows(print_helper<str_vec_2d_t> *const helper)
+    {
+        if (!this->headers().empty()) this->print_header(helper);
+
+        // Print Rows
+        for (auto i{1uz}; i <= helper->items.size(); ++i) {
+            this->print_separator(helper->width, i);
+            helper->set_padding(i);
+            std::cout << helper->build_row(i, this->col_chrs());
+        }
+    }
 
     /**
      * @brief prints title row. title is centered. If title has no value function just prints a newline
      * @param helper
      */
-    void print_title(print_helper<T> * helper) {
+    void print_title(const print_helper<str_vec_2d_t> * helper) {
         // Print title if title is assigned a value
         if (title_.has_value()) {
             std::cout
@@ -715,7 +982,7 @@ private:
 
 
     /** @brief Prints the header row. Does not check if header has elements */
-    constexpr void print_header(const print_helper<T> *const helper) {
+    constexpr void print_header(const print_helper<str_vec_2d_t> *const helper) {
         std::string row_str;
         /// for each column
         for (auto i{0uz}; i < helper->num_of_cols; ++i) {
@@ -740,192 +1007,23 @@ private:
     }
 
 
-    /**
- * @memberof Menu
- * @param helper pointer to print_helper class
- * @brief prints separator for header or footer (same length)
- */
-    void print_separator(const print_helper<T> *const helper) const {
-        std::cout << std::string(helper->width, '~') << "\n";
-    }
-
-
-    [[nodiscard]] constexpr std::string* find_menu_item(const std::string& search_item) const {
-        for (const auto item : menu_items_) {
-            if (item == search_item)
-                return &item;
-        }
-        return nullptr;
-    }
-
-
     [[nodiscard]] constexpr std::vector<col_characteristics>& col_chrs() {return col_chrs_;}
 
 
-    T menu_items_;
+    str_vec_2d_t menu_items_{};
     std::vector<std::string> header_;
-    std::vector<Separator<T>> separators_;
+    std::vector<Separator<str_vec_2d_t>> separators_{};
     std::vector<col_characteristics> col_chrs_;
     std::optional<std::size_t> response_;
     std::optional<std::string> title_;
-
-
 };
 
-template <>
-print_helper<std::vector<std::vector<std::string>>>::print_helper(const Menu * menu);
-template <>
-print_helper<std::vector<std::string>>::print_helper(const Menu * menu);
-/**
-* @overload std::string build_row(const std::size_t row_index) const
-* @memberof print_helper<std::vector<std::string>>
- */
-template <>
-[[nodiscard]] inline std::string print_helper<std::vector<std::string>>::build_row(
-    const std::size_t row_index)
-const {
-    std::string row_str;
-    /// for each column
-    for (uint8_t i = 0; i < num_of_cols; ++i) {
-        /// If the index is less than the columns size
-        if (row_index - 1 < items.at(i).size()) {
-            /// build string for row with item at [col, row - 1] + padding for column
-            row_str.append(items.at(i).at(row_index-1) + std::string(col_dimensions_.at(i).padding, ' '));
-        }
-    }
-    row_str.append("\n");
-    return row_str;
-}
 
-/**
-* @overload std::string build_row(const std::size_t row_index) const
-* @memberof print_helper<std::vector<std::vector<std::string>>>
- */
-template <>
-[[nodiscard]] inline std::string print_helper<std::vector<std::vector<std::string>>>::build_row(
-    const std::size_t row_index, const std::vector<col_characteristics>& col_chrs)
-const {
-    std::string row_str;
-    /// for each column
-    for (uint8_t i = 0; i < num_of_cols; ++i) {
-
-        switch (col_chrs.at(i).alignment) {
-            case Align::LEFT:
-                /// build string for row with item at [row - 1, col] + padding for column
-                row_str.append(items.at(row_index-1).at(i) + std::string(col_dimensions_.at(i).padding, ' '));
-                break;
-            case Align::RIGHT:
-                /// build string for row with padding for column + item at [row - 1, col]
-                row_str.append(std::string(col_dimensions_.at(i).padding, ' ') + items.at(row_index-1).at(i));
-                break;
-            default:;
-        }
-
-    }
-    row_str.append("\n");
-    return row_str;
-}
-
-/**
- * @overload void set_padding(const std::size_t row_index)
- * @memberof print_helper<std::vector<std::string>>
- */
-template <>
-inline void print_helper<std::vector<std::string>>::set_padding(const std::size_t row_index) {
-
-    /// for each column
-    for (uint8_t i = 0; i < num_of_cols; ++i) {
-        /// if not the last column
-        if (i < num_of_cols - 1) {
-            /// if row index is less than or equal to the size of the column
-            if (row_index <= items.at(i).size()) {
-                /// padding = buffer - length of menu item
-                col_dimensions_.at(i).padding = col_dimensions_.at(i).buffer - items.at(i).at(row_index-1).length();
-            }
-            else {
-                col_dimensions_.at(i).padding = 0;
-            }
-        }
-        /// if the last column
-        else if (i == num_of_cols - 1) {
-            col_dimensions_.at(i).padding = 0;
-        }
-    }
-}
-/**
- * @overload void set_padding(const std::size_t row_index)
- * @memberof print_helper<std::vector<std::vector<std::string>>>
- */
-template <>
-inline void print_helper<std::vector<std::vector<std::string>>>::set_padding(const std::size_t row_index) {
-
-    /// for each column
-    for (uint8_t i = 0; i < num_of_cols; ++i) {
-        /// padding = buffer - length of menu item
-        col_dimensions_.at(i).padding = col_dimensions_.at(i).buffer - items.at(row_index-1).at(i).length();
-    }
-}
-/**
- * @memberof Menu<std::vector<std::vector<std::string>>>
- * @param helper pointer to print_helper object
- * @brief prints all rows of menu
- */
-template <>
-constexpr void Menu<std::vector<std::vector<std::string>>>::print_rows(
-    print_helper<std::vector<std::vector<std::string>>> *const helper)
-{
-    if (!this->headers().empty()) this->print_header(helper);
-
-    // Print Rows
-    for (auto i{1uz}; i <= helper->items.size(); ++i) {
-        this->print_separator(helper->width, i);
-        helper->set_padding(i);
-        std::cout << helper->build_row(i, this->col_chrs());
-    }
-}
-/**
- * @memberof Menu<std::vector<std::string>>
- * @param helper pointer to print_helper object
- * @brief prints all rows of menu
- */
-template <>
-constexpr void Menu<std::vector<std::string>>::print_rows(
-    print_helper<std::vector<std::string>> *const helper)
-{
-    if (helper->num_of_cols == 1) {
-        for (uint8_t i{0}; i < static_cast<uint8_t>(this->size()); ++i) {
-            this->print_separator(helper->width, i + 1);
-            std::cout << i + 1 << ") " << menu_items_[i] << "\n";
-        }
-    }
-    else {
-        // Print Rows
-        for (auto i{1uz}; i <= helper->items[0].size(); ++i) {
-            this->print_separator(helper->width, i);
-            helper->set_padding(i);
-            std::cout << helper->build_row(i);
-        }
-    }
-}
-
-/** @overload constexpr void print() */
-template <typename T> requires is_menu_items<T>
-constexpr void Menu<T>::print() {
-    print_helper print_helper_(this);
-
-    std::cout << sizeof(print_helper_) << std::endl;
-    std::cout << sizeof(*this) << std::endl;
-
-    this->print_title(&print_helper_);
-    this->print_separator(&print_helper_);
-    this->print_rows(&print_helper_);
-    this->print_separator(&print_helper_);
-}
 
 
 
 template <>
-inline print_helper<std::vector<std::string>>::print_helper(const Menu * const menu)  {
+inline print_helper<str_vec_1d_t>::print_helper(const Menu<str_vec_1d_t> * const menu)  {
 
     auto menu_items = menu->menu_items();
     auto slice{0uz};
@@ -952,7 +1050,7 @@ inline print_helper<std::vector<std::string>>::print_helper(const Menu * const m
 
 
     // Calculate the positions for the slicing for the columns
-    for (uint8_t i = 0; i < num_of_cols; ++i) {
+    for (auto i{0uz}; i < num_of_cols; ++i) {
         if (i==0)
             it_positions.emplace_back(slice + (remainder > i));
         else
@@ -988,7 +1086,7 @@ inline print_helper<std::vector<std::string>>::print_helper(const Menu * const m
 
 
 template <>
-inline print_helper<std::vector<std::vector<std::string>>>::print_helper(const Menu * const menu)  {
+inline print_helper<str_vec_2d_t>::print_helper(const Menu<str_vec_2d_t> * const menu)  {
 
     items = menu->menu_items();
     num_of_cols = items.at(0).size();
