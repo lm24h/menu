@@ -689,16 +689,16 @@ public:
 
     /**
      * assigns alignment to a desired column
-     * @param column_index begins at 0 -> first column is 0
+     * @param column_index begins at 1 -> first column is 1
      * @param alignment LEFT, RIGHT, CENTER
      */
     constexpr void align(const std::size_t column_index, const Align alignment) const {
-        if (column_index > num_of_cols() - 1 || column_index < 1)
+        if (column_index > num_of_cols() || column_index < 2)
             throw std::out_of_range(
                 "Entered col index ->(" + std::to_string(column_index) +
                 ") outside exceptable col range ->[1, " + std::to_string(num_of_cols()) + "]"
             );
-        col_chrs_ptr_[column_index].alignment = alignment;
+        col_chrs_ptr_[column_index - 1].alignment = alignment;
     }
 
 
