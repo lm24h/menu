@@ -7,7 +7,7 @@ project(
 )
 
 add_library(menu INTERFACE
-        include/menu/Menu_Stack.h)
+        include/menu/Menu_Stack.hpp)
 
 # Make header visible to anything linking the library
 target_include_directories(menu INTERFACE
@@ -21,7 +21,7 @@ target_compile_features(menu INTERFACE
 
 add_executable(menu_tests
         test/test.cpp
-        include/menu/Menu_Stack.h
+        include/menu/Menu_Stack.hpp
 )
 target_link_libraries(menu_tests PRIVATE
         menu
