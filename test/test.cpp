@@ -4,9 +4,11 @@
 #include "../include/menu/menu.h"
 #include <vector>
 #include <string>
+#include <chrono>
 
 #define TESTVALUE 31
 #define RESETTESTVALUE 50
+#define TESTLOOP 10000
 
 namespace tests_2d {
     int main();
@@ -17,10 +19,22 @@ namespace tests_1d {
     void main();
 }
 
+void clear_prev_lines(const std::size_t num_lines) {
+    for (auto i{0uz}; i < num_lines; ++i) {
+        std::cout << "\033[2K";
+        if (i + 1 < num_lines)
+            std::cout << "\033[1A";
+    }
+    std::cout << "\r" << std::flush;
+}
+
 int main() {
 
 
+
     tests_2d::main();
+
+    return 0;
 
 }
 
@@ -35,40 +49,36 @@ int tests_2d::main() {
     Menu<str_vec_2d_t> menu(items);
     menu.emplace_back({"EXIT", "", ""});
 
-    menu.title("Restaurant Menu", Align::CENTER);
-
+    menu.title("");
     menu.add_headers("Item", "In-or-Out", "Price");
-
     menu.separators('=', 4);
-
-    try {
-        menu.align(3, Align::RIGHT, 4, Align::RIGHT);
-    }
-    catch (...) {
-        std::cerr << "Exception caught!\n";
-        menu.align(3, Align::RIGHT);
-    }
-
+    menu.align(3, Align::RIGHT);
     menu.excl_align({4});
     menu.align_header(3, Align::CENTER, 2, Align::LEFT);
     menu.preceding_dots(3, {4});
-
     menu.print();
 
-    try {
-        std::cout << "Integer Response: " << menu.response() << "\n";
-    }
-    catch (...) {
-        std::cerr << "Exception caught! No int response\n";
-    }
-
-    std::cout << "Size of Menu: " << sizeof(menu) << " bytes\n";
-
-    Menu menu2(std::move(menu));
+    Menu<str_vec_2d_t> menu2(items);
+    menu2 = menu;
     menu2.print();
+
+
+    // std::chrono::duration<long long, std::ratio<1, 1000000>> total_elapsed{0};
+    //
+    // for (auto i{0uz}; i < TESTLOOP; ++i) {
+    //     auto start = std::chrono::steady_clock::now();
+    //     menu.print();
+    //     auto end = std::chrono::steady_clock::now();
+    //     total_elapsed += std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    //     clear_prev_lines(12);
+    // }
+    //
+    // std::cout << "Time to print: " << total_elapsed.count() / TESTLOOP << " us" << std::endl;
 
     return 0;
 }
+
+
 
 int tests_2d::title() {
     std::vector<std::vector<std::string>> items{

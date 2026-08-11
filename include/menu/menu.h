@@ -648,19 +648,12 @@ public:
      * Destructor -- Frees up all previously allocated memory
      */
     ~Menu() {
-        free(col_chrs_ptr_);
-        delete menu_items_;
-        delete response_ptr_;
-        delete separators_;
-        delete header_ptr_;
-        if (title_ptr_ != nullptr) {
-            delete title_ptr_;
-        }
+        free_all(*this);
     }
 
 
     /**
-     * Copy Constructor -- Creates new copy of a Menu object
+     * Copy Constructor \n Creates new copy of a Menu object
      * @param other any other Menu object
      */
     Menu(const Menu& other) :
@@ -684,7 +677,7 @@ public:
 
 
     /**
-     * Move Constructor -- Transfers ownership of memory and nulls other object
+     * Move Constructor \n Transfers ownership of memory and nulls other object
      * @param other any other Menu object
      */
     Menu(Menu&& other) noexcept :
@@ -695,12 +688,76 @@ public:
         title_ptr_{other.title_ptr_},
         response_ptr_{other.response_ptr_}
     {
-        other.menu_items_ = nullptr;
-        other.separators_ = nullptr;
-        other.header_ptr_ = nullptr;
-        other.col_chrs_ptr_ = nullptr;
-        other.title_ptr_ = nullptr;
-        other.response_ptr_ = nullptr;
+        null_all(other);
+    }
+
+
+    /**
+     * Copy Assignment \n Frees up LHS existing memory and makes a copy of RHS Menu object memory
+     * @param other any other Menu object
+     * @return Copy of RHS Menu object
+     */
+    Menu& operator=(const Menu& other) {
+        if (this == &other)
+            return *this;
+
+        // Assign new variables with other member variables
+        auto new_col_chrs =
+            static_cast<Menu_Characteristics::column*>(
+                std::malloc(other.num_of_cols() * sizeof(Menu_Characteristics::column)));
+        for (auto i{0uz}; i < other.num_of_cols(); ++i)
+            new (&new_col_chrs[i]) Menu_Characteristics::column{other.col_chrs_ptr_[i]};
+
+        const auto new_menu_items = new str_vec_2d_t{*other.menu_items_};
+        const auto new_separators = new std::vector{*other.separators_};
+        const auto new_header_ptr = new std::vector{*other.header_ptr_};
+        const auto new_response_ptr = new std::size_t{*other.response_ptr_};
+
+        Title_t* new_title_ptr;
+        if (other.title_ptr_ != nullptr)
+            new_title_ptr = new Title_t{*other.title_ptr_};
+        else
+            new_title_ptr = nullptr;
+
+        // Free up existing memory
+        free_all(*this);
+
+        // Copy
+        menu_items_ = new_menu_items;
+        separators_ = new_separators;
+        header_ptr_ = new_header_ptr;
+        response_ptr_ = new_response_ptr;
+        col_chrs_ptr_ = new_col_chrs;
+        title_ptr_ = new_title_ptr;
+
+        return *this;
+    }
+
+
+    /**
+     * Move Assignment \n Releases LHS memory and steals RHS memory
+     * @param other any other Menu object
+     * @returns LHS with all of RHS memory and leaves RHS NULL
+     */
+    Menu& operator=(Menu&& other) noexcept {
+        if (this == &other)
+            return *this;
+
+        // Free existing memory
+        free_all(*this);
+
+        // Copy other memory
+        menu_items_ = other.menu_items_;
+        separators_ = other.separators_;
+        header_ptr_ = other.header_ptr_;
+        col_chrs_ptr_ = other.col_chrs_ptr_;
+        title_ptr_ = other.title_ptr_;
+        response_ptr_ = other.response_ptr_;
+
+        // NULL other memory
+       null_all(other);
+
+        return *this;
     }
 
 
@@ -731,7 +788,8 @@ public:
     }
 
     /** @returns title for menu or empty string if title not set */
-    [[nodiscard]] constexpr std::string title() const noexcept { return title_ptr_->str(); }
+    [[nodiscard]] constexpr std::string title() const noexcept
+        { return title_ptr_==nullptr ? "" : title_ptr_->str(); }
 
 
     constexpr void clear_header() noexcept { header_ptr_->clear(); }
@@ -1074,6 +1132,26 @@ private:
         }
     }
 
+    static constexpr void free_all(Menu& menu) noexcept {
+        free(menu.col_chrs_ptr_);
+        delete menu.menu_items_;
+        delete menu.response_ptr_;
+        delete menu.separators_;
+        delete menu.header_ptr_;
+        if (menu.title_ptr_ != nullptr) {
+            delete menu.title_ptr_;
+        }
+    }
+
+    static constexpr void null_all(Menu& menu) noexcept {
+        menu.col_chrs_ptr_ = nullptr;
+        menu.menu_items_ = nullptr;
+        menu.response_ptr_ = nullptr;
+        menu.separators_ = nullptr;
+        menu.header_ptr_ = nullptr;
+        menu.title_ptr_ = nullptr;
+    }
+
 
     template <typename... Args>
     constexpr void headers(const std::string& header, Args&&... args) {
@@ -1130,6 +1208,10 @@ private:
      * @param helper
      */
     void print_title(const print_helper<str_vec_2d_t> * helper) {
+        if (title_ptr_ == nullptr) {
+            std::cout << '\n';
+            return;
+        }
         switch (title_ptr_->get_align()) {
             case Align::LEFT:
                 std::cout << "\n" << print_helper<std::vector<std::string>>::left(title_ptr_->str(), helper->width) << "\n";
