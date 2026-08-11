@@ -632,12 +632,21 @@ private:
     }
 };
 
+
+/**
+ * Represents a 2D Menu consisting of rows with a set number of columns. \n
+ * Headers for columns and menu title are optional. \n
+ * Columns, headers, and title can be aligned, among other customization options. \n
+ * Response to menu must be set before it is retrieved . \n
+ * After object is constructed, the number of columns can not be changed unless entire object is reset.
+ */
 template <>
 class Menu<str_vec_2d_t> {
 
 public:
-
-    // ~~~~~~~~~~~~ Constructors / Destructors ~~~~~~~~~~~~ //
+    /**
+     * Destructor -- Frees up all previously allocated memory
+     */
     ~Menu() {
         free(col_chrs_ptr_);
         delete menu_items_;
@@ -651,6 +660,52 @@ public:
 
 
     /**
+     * Copy Constructor -- Creates new copy of a Menu object
+     * @param other any other Menu object
+     */
+    Menu(const Menu& other) :
+        menu_items_{new str_vec_2d_t{*other.menu_items_}},
+        separators_{new std::vector{*other.separators_}},
+        header_ptr_{new std::vector{*other.header_ptr_}},
+        col_chrs_ptr_{nullptr},
+        title_ptr_{nullptr},
+        response_ptr_{new std::size_t{*other.response_ptr_}}
+    {
+        if (other.title_ptr_ != nullptr)
+            title_ptr_ = new Title_t{*other.title_ptr_};
+
+        col_chrs_ptr_ = static_cast<Menu_Characteristics::column*>(
+            malloc(num_of_cols() * sizeof(Menu_Characteristics::column)));
+
+        for (auto i{0uz}; i < num_of_cols(); ++i) {
+            new (&col_chrs_ptr_[i]) Menu_Characteristics::column{other.col_chrs_ptr_[i]};
+        }
+    }
+
+
+    /**
+     * Move Constructor -- Transfers ownership of memory and nulls other object
+     * @param other any other Menu object
+     */
+    Menu(Menu&& other) noexcept :
+        menu_items_{other.menu_items_},
+        separators_{other.separators_},
+        header_ptr_{other.header_ptr_},
+        col_chrs_ptr_{other.col_chrs_ptr_},
+        title_ptr_{other.title_ptr_},
+        response_ptr_{other.response_ptr_}
+    {
+        other.menu_items_ = nullptr;
+        other.separators_ = nullptr;
+        other.header_ptr_ = nullptr;
+        other.col_chrs_ptr_ = nullptr;
+        other.title_ptr_ = nullptr;
+        other.response_ptr_ = nullptr;
+    }
+
+
+
+    /**
      * @brief header and separators remain empty
      * @param menu_items container of strings to be the menu choices
      */
@@ -660,7 +715,7 @@ public:
         header_ptr_(new std::vector<std::string>),
         col_chrs_ptr_(nullptr),
         title_ptr_(nullptr),
-        response_ptr_(new std::size_t())
+        response_ptr_(new std::size_t{0uz})
     {
         if (!menu_items.empty())
             menu_init(menu_items[0].size());
@@ -1126,12 +1181,12 @@ private:
 
 
 
-    str_vec_2d_t* const menu_items_;
+    str_vec_2d_t* menu_items_;
     std::vector<Separator>* separators_;
     std::vector<std::string>* header_ptr_;
     Menu_Characteristics::column* col_chrs_ptr_;
     Title_t* title_ptr_;
-    std::size_t* const response_ptr_;
+    std::size_t* response_ptr_;
 
 };
 

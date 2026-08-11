@@ -9,8 +9,8 @@
 #define RESETTESTVALUE 50
 
 namespace tests_2d {
-    void main();
-    void title();
+    int main();
+    int title();
 }
 
 namespace tests_1d {
@@ -20,13 +20,11 @@ namespace tests_1d {
 int main() {
 
 
-    //tests_2d::main();
-    tests_2d::title();
-
+    tests_2d::main();
 
 }
 
-void tests_2d::main() {
+int tests_2d::main() {
 
     std::vector<std::vector<std::string>> items{
             {"Burger", "Order-in", "$8.99"},
@@ -57,13 +55,22 @@ void tests_2d::main() {
 
     menu.print();
 
-    menu.response(2);
+    try {
+        std::cout << "Integer Response: " << menu.response() << "\n";
+    }
+    catch (...) {
+        std::cerr << "Exception caught! No int response\n";
+    }
 
-    std::cout << "Integer Response: " << menu.response() << "\n";
     std::cout << "Size of Menu: " << sizeof(menu) << " bytes\n";
+
+    Menu menu2(std::move(menu));
+    menu2.print();
+
+    return 0;
 }
 
-void tests_2d::title() {
+int tests_2d::title() {
     std::vector<std::vector<std::string>> items{
                 {"Burger", "Order-in", "$8.99"},
                 {"Pizza", "Order-out", "$11.50"},
@@ -82,6 +89,8 @@ void tests_2d::title() {
     menu.print();
 
     menu.reset();
+
+    return 0;
 }
 
 
