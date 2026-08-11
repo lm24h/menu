@@ -8,27 +8,52 @@
 #define TESTVALUE 31
 #define RESETTESTVALUE 50
 
+namespace tests_2d {
+    void main();
+    void title();
+}
+
+namespace tests_1d {
+    void main();
+}
+
 int main() {
 
+
+    //tests_2d::main();
+    tests_2d::title();
+
+
+}
+
+void tests_2d::main() {
+
     std::vector<std::vector<std::string>> items{
-        {"Burger", "$8.99"},
-        {"Pizza", "$11.50"},
-        {"Salad", "$6.25"},
-    };
+            {"Burger", "Order-in", "$8.99"},
+            {"Pizza", "Order-out", "$11.50"},
+            {"Salad", "Order-in", "$6.25"},
+        };
 
     Menu<str_vec_2d_t> menu(items);
-    menu.emplace_back({"EXIT", ""});
+    menu.emplace_back({"EXIT", "", ""});
 
-    menu.title("Restaurant Menu");
+    menu.title("Restaurant Menu", Align::CENTER);
 
-    menu.headers({"Item", "Price"});
+    menu.add_headers("Item", "In-or-Out", "Price");
 
-    menu.separators(
-        '=', 4
-    );
+    menu.separators('=', 4);
 
-    menu.align(1, Align::RIGHT);
-    menu.align_header(1, Align::RIGHT);
+    try {
+        menu.align(3, Align::RIGHT, 4, Align::RIGHT);
+    }
+    catch (...) {
+        std::cerr << "Exception caught!\n";
+        menu.align(3, Align::RIGHT);
+    }
+
+    menu.excl_align({4});
+    menu.align_header(3, Align::CENTER, 2, Align::LEFT);
+    menu.preceding_dots(3, {4});
 
     menu.print();
 
@@ -36,10 +61,31 @@ int main() {
 
     std::cout << "Integer Response: " << menu.response() << "\n";
     std::cout << "Size of Menu: " << sizeof(menu) << " bytes\n";
+}
+
+void tests_2d::title() {
+    std::vector<std::vector<std::string>> items{
+                {"Burger", "Order-in", "$8.99"},
+                {"Pizza", "Order-out", "$11.50"},
+                {"Salad", "Order-in", "$6.25"},
+            };
+
+    Menu<str_vec_2d_t> menu(items);
+    menu.emplace_back({"EXIT", "", ""});
+
+    menu.title("Restaurant Menu", Align::CENTER);
+    menu.title("Restaurant Menu2", Align::RIGHT);
+
+    menu.separators('=', 4);
+    menu.excl_align({4});
+
+    menu.print();
+
+    menu.reset();
+}
 
 
-
-
+void tests_1d::main() {
     str_vec_1d_t items_1d = {};
     for (auto i{0uz}; i < TESTVALUE; ++i) {
         if (i==1)
@@ -57,8 +103,6 @@ int main() {
     std::cout << "Response as item: " << menu_1d.response_as_menu_item() << "\n";
     std::cout << "Size of Menu in bytes: " << sizeof(menu_1d) << "\n";
     std::cout << "Size of Menu in items: " << menu_1d.size() << "\n";
-
-
 
 
     str_vec_1d_t reset_items_1d = {};
@@ -80,5 +124,4 @@ int main() {
     std::cout << "Response as item: " << menu_1d.response_as_menu_item() << "\n";
     std::cout << "Size of Menu in bytes: " << sizeof(menu_1d) << "\n";
     std::cout << "Size of Menu in items: " << menu_1d.size() << "\n";
-
 }

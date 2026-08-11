@@ -6,8 +6,7 @@ project(
         LANGUAGES CXX
 )
 
-add_library(menu INTERFACE
-        include/menu/Menu_Stack.hpp)
+add_library(menu INTERFACE)
 
 # Make header visible to anything linking the library
 target_include_directories(menu INTERFACE
@@ -21,7 +20,6 @@ target_compile_features(menu INTERFACE
 
 add_executable(menu_tests
         test/test.cpp
-        include/menu/Menu_Stack.hpp
 )
 target_link_libraries(menu_tests PRIVATE
         menu
