@@ -26,6 +26,7 @@ class Menu<str_vec_1d_t>;
 
 
 enum class Align {LEFT, RIGHT, CENTER};
+enum class Color {BLACK, WHITE, RED, BLUE, GREEN, YELLOW, MAGENTA, CYAN};
 
 
 struct col_dimensions {

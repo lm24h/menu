@@ -21,6 +21,8 @@ struct Title_t {
     }
     Title_t(const Title_t& other) {
         length_ = other.length_;
+        title_alignment_ = other.title_alignment_;
+        title_color_ = other.title_color_;
         title_ = static_cast<char*>(std::malloc(length_ + 1));
         for (auto i{0uz}; i < length_; ++i)
             title_[i] = other.title_[i];
@@ -38,7 +40,6 @@ struct Title_t {
             title_[i] = title[i];
         title_[length_] = '\0';
     }
-
     Title_t& operator=(const Title_t& other) {
         if (this == &other)
             return *this;
@@ -76,6 +77,10 @@ struct Title_t {
         return return_str;
     }
 
+    constexpr char* c_str() const noexcept {
+        return title_;
+    }
+
     constexpr void set_title(const std::string& title) noexcept {
         title_ = static_cast<char*>(std::realloc(title_, sizeof(char) * title.length()));
         length_ = static_cast<unsigned int>(title.length());
@@ -85,11 +90,14 @@ struct Title_t {
     }
 
     constexpr void set_align(const Align alignment) noexcept { title_alignment_ = alignment; }
+    constexpr void set_color(const Color& color) noexcept { title_color_ = color; }
     constexpr Align get_align() const noexcept { return title_alignment_; }
+    constexpr Color get_color() const noexcept { return title_color_; }
 private:
     char* title_;
     unsigned int length_;
     Align title_alignment_{Align::CENTER};
+    Color title_color_{Color::WHITE};
 };
 
 namespace Menu_Characteristics {
@@ -780,11 +788,15 @@ public:
 
 
     /** @brief Sets title for menu and alignment. Default alignment for title is center */
-    constexpr void title(const std::string& title, const Align alignment=Align::CENTER) noexcept {
-        if (title_ptr_ != nullptr)
-            title_ptr_->~Title_t();
-        title_ptr_ = new Title_t{title};
+    constexpr void title(
+        const std::string& title,
+        const Align alignment=Align::CENTER,
+        const Color color=Color::WHITE
+        ) noexcept
+    {
+        title_ptr_ = std::move(new Title_t{title});
         title_ptr_->set_align(alignment);
+        title_ptr_->set_color(color);
     }
 
     /** @returns title for menu or empty string if title not set */
@@ -1212,17 +1224,30 @@ private:
             std::cout << '\n';
             return;
         }
+        const auto pad = new std::size_t{helper->width - std::strlen(title_ptr_->c_str())};
         switch (title_ptr_->get_align()) {
             case Align::LEFT:
-                std::cout << "\n" << print_helper<std::vector<std::string>>::left(title_ptr_->str(), helper->width) << "\n";
+                std::cout << "\n"
+                    << color_text(title_ptr_->c_str(), title_ptr_->get_color())
+                    << std::string(*pad, ' ') << "\n";
                 break;
             case Align::RIGHT:
-                std::cout << "\n" << print_helper<std::vector<std::string>>::right(title_ptr_->str(), helper->width) << "\n";
+                std::cout << "\n"
+                << std::string(*pad, ' ')
+                << color_text(title_ptr_->c_str(), title_ptr_->get_color()) << "\n";
                 break;
             case Align::CENTER:
-                std::cout << "\n" << print_helper<std::vector<std::string>>::center(title_ptr_->str(), helper->width) << "\n";
+                const auto half_pad = new std::size_t{*pad / 2};
+                const auto* rem = new uint8_t{static_cast<uint8_t>(*pad % 2)};
+                std::cout << "\n"
+                    << std::string(*half_pad, ' ')
+                    << color_text(title_ptr_->c_str(), title_ptr_->get_color())
+                    << std::string(*half_pad + *rem, ' ') << "\n";
+                delete rem;
+                delete half_pad;
                 break;
         }
+        delete pad;
     }
 
 
@@ -1261,6 +1286,24 @@ private:
 
     [[nodiscard]] constexpr Menu_Characteristics::column* col_chrs() const {return col_chrs_ptr_;}
 
+
+    static constexpr std::string color_text(const char* text, const Color color) {
+        return "\033[" + color_driver(color) + "m" + text + "\033[0m";
+    }
+
+    static constexpr std::string color_driver(const Color c) noexcept {
+        switch (c) {
+            case Color::BLACK: return "30";
+            case Color::RED: return "31";
+            case Color::GREEN: return "32";
+            case Color::YELLOW: return "33";
+            case Color::BLUE: return "34";
+            case Color::MAGENTA: return "35";
+            case Color::CYAN: return "36";
+            case Color::WHITE: return "37";
+        }
+        return "";
+    }
 
 
     str_vec_2d_t* menu_items_;

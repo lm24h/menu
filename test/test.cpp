@@ -31,7 +31,6 @@ void clear_prev_lines(const std::size_t num_lines) {
 int main() {
 
 
-
     tests_2d::main();
 
     return 0;
@@ -49,7 +48,7 @@ int tests_2d::main() {
     Menu<str_vec_2d_t> menu(items);
     menu.emplace_back({"EXIT", "", ""});
 
-    menu.title("");
+    menu.title("This Is A Test", Align::LEFT, Color::RED);
     menu.add_headers("Item", "In-or-Out", "Price");
     menu.separators('=', 4);
     menu.align(3, Align::RIGHT);
@@ -60,7 +59,11 @@ int tests_2d::main() {
 
     Menu<str_vec_2d_t> menu2(items);
     menu2 = menu;
+    menu2.title("This Is A Test 2", Align::CENTER, Color::BLUE);
     menu2.print();
+    Menu<str_vec_2d_t> menu3(items);
+    menu3 = std::move(menu);
+    menu3.print();
 
 
     // std::chrono::duration<long long, std::ratio<1, 1000000>> total_elapsed{0};
