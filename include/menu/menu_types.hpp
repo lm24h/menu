@@ -1,4 +1,5 @@
 #pragma once
+#include <iostream>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -35,9 +36,14 @@ enum class Color {BLACK, WHITE, RED, BLUE, GREEN, YELLOW, MAGENTA, CYAN};
 enum class Style {NONE, BOLD, DIM, ITALIC, UNDERLINE};
 
 static constexpr std::string style_driver(Style style) noexcept;
+static constexpr std::string color_driver(const Color c) noexcept;
 
 static constexpr std::string style(const Style style) noexcept {
     return "\033[" + style_driver(style) +  + "m";
+}
+
+static constexpr std::string color_text(const Color color) {
+    return "\033[" + color_driver(color) + "m";
 }
 
 static constexpr std::string style_driver(const Style style) noexcept {
@@ -50,6 +56,19 @@ static constexpr std::string style_driver(const Style style) noexcept {
     }
 }
 
+static constexpr std::string color_driver(const Color c) noexcept {
+    switch (c) {
+        case Color::BLACK: return "30";
+        case Color::RED: return "31";
+        case Color::GREEN: return "32";
+        case Color::YELLOW: return "33";
+        case Color::BLUE: return "34";
+        case Color::MAGENTA: return "35";
+        case Color::CYAN: return "36";
+        case Color::WHITE: return "37";
+    }
+    return "";
+}
 
 struct col_dimensions {
     col_dimensions(const std::size_t buff, const std::size_t pad) : buffer(buff), padding(pad) {}
@@ -58,22 +77,5 @@ struct col_dimensions {
 };
 
 
-/**
- * Holds the characteristics of a seperator
- *
- * @tparam T required type is std::vector<std::string>> or std::vector<std::vector<std::string>>>.
- * Represents the two menu types
- */
-struct Separator {
 
-    /**
-     * @memberof Separator.
-     * @brief Determines where to print separator.
-     * Prints BEFORE index
-     */
-    std::size_t index;
-
-    /** @memberof Separator. @brief character to be printed for separator */
-    char separator_char;
-};
 

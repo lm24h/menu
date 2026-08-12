@@ -2,12 +2,12 @@
 #define MENU_LIBRARY_H
 #include "menu_types.hpp"
 #include "Title.hpp"
-#include "Headers.hpp"
+#include "Columns.hpp"
+#include "Separators.hpp"
 #include <cstdint>
 #include <cstring>
 #include <string>
 #include <vector>
-#include <iostream>
 
 enum class menu_error_t {
     none,
@@ -238,7 +238,7 @@ public:
 * @memberof print_helper<std::vector<std::vector<std::string>>>
  */
     [[nodiscard]] std::string build_row(
-        const std::size_t row_index, const Menu_Characteristics::column * const col_chrs_ptr) const
+        const std::size_t row_index, const std::array<Column_t, columns> col_chrs_ptr) const
     {
 
         std::string row_str;
@@ -251,7 +251,7 @@ public:
             *pad = col_dimensions_.at(i).buffer - items[row_index - 1][i].length();
 
             const Align alignment = in_list(row_index, Menu_Characteristics::row::exclude_from_alignment)
-                                  ? Align::LEFT : col_chrs_ptr[i].alignment;
+                                  ? Align::LEFT : col_chrs_ptr[i].characteristics.alignment_;
 
             // Index must be separated from the item string for first column
             if (i == FIRST_COLUMN) {
@@ -607,21 +607,13 @@ public:
      */
     Menu(const Menu& other) :
         menu_items_{new str_vec_2d_t{*other.menu_items_}},
-        separators_{new std::vector{*other.separators_}},
-        header_ptr_{new Headers<columns>{*other.header_ptr_}},
-        col_chrs_ptr_{nullptr},
+        separators_{new Separator{*other.separators_}},
+        columns_ptr_{new Columns<columns>{*other.columns_ptr_}},
         title_ptr_{nullptr},
         response_ptr_{new std::size_t{*other.response_ptr_}}
     {
         if (other.title_ptr_ != nullptr)
             title_ptr_ = new Title_t{*other.title_ptr_};
-
-        col_chrs_ptr_ = static_cast<Menu_Characteristics::column*>(
-            malloc(num_of_cols() * sizeof(Menu_Characteristics::column)));
-
-        for (auto i{0uz}; i < num_of_cols(); ++i) {
-            new (&col_chrs_ptr_[i]) Menu_Characteristics::column{other.col_chrs_ptr_[i]};
-        }
     }
 
 
@@ -632,13 +624,9 @@ public:
     Menu(Menu&& other) noexcept :
         menu_items_{other.menu_items_},
         separators_{other.separators_},
-        header_ptr_{other.header_ptr_},
-        col_chrs_ptr_{other.col_chrs_ptr_},
+        columns_ptr_{other.columns_ptr_},
         title_ptr_{other.title_ptr_},
-        response_ptr_{other.response_ptr_}
-    {
-        null_all(other);
-    }
+        response_ptr_{other.response_ptr_} { null_all(other); }
 
 
     /**
@@ -650,16 +638,9 @@ public:
         if (this == &other)
             return *this;
 
-        // Assign new variables with other member variables
-        auto new_col_chrs =
-            static_cast<Menu_Characteristics::column*>(
-                std::malloc(other.num_of_cols() * sizeof(Menu_Characteristics::column)));
-        for (auto i{0uz}; i < other.num_of_cols(); ++i)
-            new (&new_col_chrs[i]) Menu_Characteristics::column{other.col_chrs_ptr_[i]};
-
         const auto new_menu_items = new str_vec_2d_t{*other.menu_items_};
-        const auto new_separators = new std::vector{*other.separators_};
-        const auto new_header_ptr = new Headers<columns>{*other.header_ptr_};
+        const auto new_separators = new Separator{*other.separators_};
+        const auto new_columns_ptr = new Columns<columns>{*other.columns_ptr_};
         const auto new_response_ptr = new std::size_t{*other.response_ptr_};
 
         Title_t* new_title_ptr;
@@ -674,9 +655,8 @@ public:
         // Copy
         menu_items_ = new_menu_items;
         separators_ = new_separators;
-        header_ptr_ = new_header_ptr;
+        columns_ptr_ = new_columns_ptr;
         response_ptr_ = new_response_ptr;
-        col_chrs_ptr_ = new_col_chrs;
         title_ptr_ = new_title_ptr;
 
         return *this;
@@ -698,8 +678,7 @@ public:
         // Copy other memory
         menu_items_ = other.menu_items_;
         separators_ = other.separators_;
-        header_ptr_ = other.header_ptr_;
-        col_chrs_ptr_ = other.col_chrs_ptr_;
+        columns_ptr_ = other.columns_ptr_;
         title_ptr_ = other.title_ptr_;
         response_ptr_ = other.response_ptr_;
 
@@ -717,15 +696,10 @@ public:
      */
     explicit Menu(const str_vec_2d_t& menu_items) :
         menu_items_(new str_vec_2d_t{menu_items}),
-        separators_(new std::vector<Separator>),
-        header_ptr_(new Headers<columns>{}),
-        col_chrs_ptr_(nullptr),
+        separators_(new Separator{}),
+        columns_ptr_(new Columns<columns>{}),
         title_ptr_(nullptr),
-        response_ptr_(new std::size_t{0uz})
-    {
-        if (!menu_items.empty())
-            menu_init(menu_items[0].size());
-    }
+        response_ptr_(new std::size_t{0uz}) {}
 
 
     /** @brief Sets title for menu and alignment. Default alignment for title is center */
@@ -743,7 +717,7 @@ public:
         { return title_ptr_==nullptr ? "" : title_ptr_->c_str(); }
 
 
-    constexpr void clear_header() noexcept { header_ptr_->clear(); }
+    constexpr void clear_header() noexcept { columns_ptr_->clear(); }
 
 
     /** @returns menu items from menu as vector */
@@ -757,25 +731,8 @@ public:
      * @param args more col_index and alignment arguments
      */
     template <typename... Args>
-    constexpr void align(
-        const std::size_t col_index,
-        const Align alignment,
-        Args&&... args) const {
-
-        if (col_index > num_of_cols() || col_index < 1) {
-            for (auto i{0uz}; i < num_of_cols(); ++i)
-                col_chrs_ptr_[i].alignment = Align::LEFT;
-            throw std::out_of_range(
-                "Entered col index ->(" + std::to_string(col_index) +
-                ") outside exceptable col range ->[1, " + std::to_string(num_of_cols()) + "]"
-            );
-        }
-
-        col_chrs_ptr_[col_index - 1].alignment = alignment;
-
-        if constexpr (sizeof...(args)) {
-            align(std::forward<Args>(args)...);
-        }
+    constexpr void align_column(const std::size_t col_index, const Align alignment, Args&&... args) const {
+        columns_ptr_->align_column(col_index, alignment, args...);
     }
 
 
@@ -802,15 +759,7 @@ public:
      */
     template <typename... Args>
     constexpr void align_header(const std::size_t col_index, const Align alignment, Args&&... args) const {
-        if (col_index > num_of_cols() || col_index < 1)
-            throw std::out_of_range(
-                "Entered col index ->(" + std::to_string(col_index) +
-                ") outside exceptable col range ->[1, " + std::to_string(num_of_cols()) + "]"
-            );
-        col_chrs_ptr_[col_index - 1].header_alignment = alignment;
-
-        if constexpr (sizeof...(args))
-            align_header(std::forward<Args>(args)...);
+        columns_ptr_->align_header(col_index, alignment, args...);
     }
 
 
@@ -825,17 +774,12 @@ public:
     constexpr void emplace_back(const std::vector<std::string>& row, const Args&... rows)
     requires (std::same_as<std::remove_cvref_t<Args>, std::vector<std::string>> && ...)
     {
-        if (empty())
-            menu_init(row.size());
-
-        if (row.size() != num_of_cols() && !empty())
+        if (row.size() != columns && !empty())
             throw std::invalid_argument(
                 "\nRow size ->(" + std::to_string(row.size()) + ") " +
-                "does not match established number of columns ->(" + std::to_string(num_of_cols()) + ")"
+                "does not match established number of columns ->(" + std::to_string(columns) + ")"
             );
-
         menu_items_->emplace_back(row);
-
         if constexpr (sizeof...(rows) > 0)
             emplace_back(row);
     }
@@ -849,8 +793,6 @@ public:
      */
     constexpr void emplace_back(const std::initializer_list<std::vector<std::string>> rows)
     {
-        if (empty())
-            menu_init(rows.size());
         for (const auto & row : rows)
             emplace_back(row);
     }
@@ -864,7 +806,7 @@ public:
      * @throws std::runtime_error If menu is empty
      */
     constexpr void headers(const std::initializer_list<std::string>& headers) const {
-        header_ptr_->set_headers(headers);
+        columns_ptr_->set_headers(headers);
     }
 
 
@@ -878,7 +820,7 @@ public:
     template <typename... Args>
     constexpr void headers(std::ranges::input_range auto&& headers){
         try {
-            header_ptr_->set_headers(std::forward<decltype(headers)>(headers));
+            columns_ptr_->set_headers(std::forward<decltype(headers)>(headers));
         }
         catch ([[maybe_unused]] std::out_of_range &e) {
             std::cerr << e.what() << '\n';
@@ -892,7 +834,7 @@ public:
     /**
      * @return headers for menu
      */
-    [[nodiscard]] constexpr Headers<columns> headers() const noexcept { return *header_ptr_; }
+    [[nodiscard]] constexpr Columns<columns> headers() const noexcept { return *columns_ptr_; }
 
 
     /**
@@ -908,16 +850,6 @@ public:
 
 
     /**
-     * @return number of columns
-     */
-    [[nodiscard]] constexpr std::size_t num_of_cols() const noexcept {
-        if (menu_items_->empty())
-            return 0;
-        return menu_items_->at(0).size();
-    }
-
-
-    /**
      * Adds preceding dots to desired column
      * @param column begins at 1 <-> first column is 1
      * @param exclude_rows excludes desired row from having any proceeding dots. default is none
@@ -925,13 +857,9 @@ public:
      */
     constexpr void preceding_dots(
         const std::size_t column,
-        const std::initializer_list<std::size_t>& exclude_rows={}) const {
-
-        if (column < 1 || column > num_of_cols())
-            throw std::out_of_range(
-                "\nEntered column index -> (" + std::to_string(column) +
-                ") not in acceptable range -> [1, " + std::to_string(num_of_cols()) + "]");
-        col_chrs_ptr_[column - 1].preceding_dots = true;
+        const std::initializer_list<std::size_t>& exclude_rows={}) const
+    {
+        columns_ptr_->preceding_dots(column);
         Menu_Characteristics::row::exclude_from_dots = exclude_rows;
     }
 
@@ -942,23 +870,28 @@ public:
      *
      * @param sep_char Character to be printed for seperator
      * @param index Determines where to print separator. Prints BEFORE index
+     * @param color
      * @param args more arguments for index and character
      *
      * @throws std::invalid_argument If index is larger than menu size or index is less than 1
      */
     template <typename... Args>
-    constexpr void separators(const char sep_char, const std::size_t index, Args&&... args) {
-
-        if (this->find_separator(index) != nullptr)
+    constexpr void separators(
+        const char sep_char,
+        const std::size_t index,
+        const Color color,
+        Args&&... args)
+    {
+        if (separators_->find_separator(index) != nullptr)
             return;
 
         if (index > menu_items_->size() || index < 1)
             throw std::invalid_argument(
                 "\nEntered index ->(" + std::to_string(index) + ") outside acceptable range " +
-                "[2, menu_size->(" + std::to_string(menu_items_->size()) + ")]"
+                "[1, menu_size->(" + std::to_string(menu_items_->size()) + ")]"
             );
 
-        separators_->push_back({.index = index, .separator_char = sep_char});
+        separators_->add(sep_char, color, index);
 
         if constexpr (sizeof...(args) > 0)
             separators(std::forward<Args>(args)...);
@@ -971,12 +904,8 @@ public:
      * @param args more arguments for index
      */
     template <typename... Args>
-    constexpr void remove_separator_at(const std::size_t index, Args&&... args) noexcept
-    {
-        if (const auto sep = this->find_separator(index); sep != nullptr)
-            separators_->erase(separators_->begin() + (sep - separators_->data()));
-        if constexpr (sizeof...(args) > 0)
-            remove_separators_at(std::forward<Args>(args)...);
+    constexpr void remove_separator_at(const std::size_t index, Args&&... args) noexcept{
+        separators_->remove_separator_at(index, args...);
     }
 
 
@@ -1018,7 +947,6 @@ public:
         this->clear_header();
         *response_ptr_ = 0;
         delete title_ptr_;
-
         title_ptr_ = nullptr;
     }
 
@@ -1036,10 +964,7 @@ public:
      */
     template <typename... Args>
     constexpr void remove_separators(const char sep_char, Args&&... args) noexcept {
-        for (long long i{0}; i < separators_->size(); ++i) {
-            if (separators_->at(i).separator_char == sep_char)
-                separators_->erase(separators_->begin() + i);
-        }
+        separators_->remove_separator(sep_char);
         if constexpr (sizeof...(args) > 0)
             separators(std::forward<Args>(args)...);
     }
@@ -1052,8 +977,8 @@ public:
  */
     constexpr void print() {
         print_helper print_helper_(this);
-
-        this->print_title(&print_helper_);
+        if (title_ptr_ != nullptr)
+            title_ptr_->print(print_helper_.width);
         std::cout << std::string(print_helper_.width, '~') << "\n";
         this->print_rows(&print_helper_);
         std::cout << std::string(print_helper_.width, '~') << "\n";
@@ -1062,67 +987,23 @@ public:
 
 private:
 
-    void menu_init(const std::size_t num_cols) noexcept {
-
-        col_chrs_ptr_ = static_cast<Menu_Characteristics::column*>(
-            malloc(num_cols * sizeof(Menu_Characteristics::column)));
-
-        for (auto i{0uz}; i < num_cols; ++i) {
-            new (&col_chrs_ptr_[i]) Menu_Characteristics::column();
-        }
-    }
-
     static constexpr void free_all(Menu& menu) noexcept {
-        free(menu.col_chrs_ptr_);
         delete menu.menu_items_;
         delete menu.response_ptr_;
         delete menu.separators_;
-        delete menu.header_ptr_;
+        delete menu.columns_ptr_;
         delete menu.title_ptr_;
 
     }
 
     static constexpr void null_all(Menu& menu) noexcept {
-        menu.col_chrs_ptr_ = nullptr;
         menu.menu_items_ = nullptr;
         menu.response_ptr_ = nullptr;
         menu.separators_ = nullptr;
-        menu.header_ptr_ = nullptr;
+        menu.columns_ptr_ = nullptr;
         menu.title_ptr_ = nullptr;
     }
 
-
-    template <typename... Args>
-    constexpr void headers(const std::string& header, Args&&... args) {
-
-        header_ptr_->push_back(header);
-
-        if constexpr (sizeof...(args) > 0)
-            headers(std::forward<Args>(args)...);
-    }
-
-    /**
-     * @memberof Menu
-     * @param width total num of chars to print for separator
-     * @param row_index separator is printed just before this row
-     * @brief prints separator
-     */
-    void print_separator(const std::size_t width, const std::size_t row_index) {
-        const Separator *const sep = this->find_separator(row_index);
-        if (sep == nullptr) return;
-        std::cout << std::string(width, sep->separator_char) << "\n";
-    }
-
-    /**
-     * @param row_index used to identify Separator struct
-     * @return pointer to separator struct for passed index, else nullptr if not found
-     */
-    Separator* find_separator(const std::size_t row_index) noexcept {
-        for (auto& item : *separators_) {
-            if (item.index == row_index) return &item;
-        }
-        return nullptr;
-    }
 
     /**
  * @memberof Menu<std::vector<std::vector<std::string>>>
@@ -1135,44 +1016,9 @@ private:
 
         // Print Rows
         for (auto i{1uz}; i <= helper->items.size(); ++i) {
-            this->print_separator(helper->width, i);
-            std::cout << helper->build_row(i, this->col_chrs());
+            separators_->print(helper->width, i);
+            std::cout << helper->build_row(i, columns_ptr_->columns());
         }
-    }
-
-    /**
-     * @brief prints title row. title is centered. If title has no value function just prints a newline
-     * @param helper
-     */
-    void print_title(const print_helper<columns> * helper) {
-        if (title_ptr_ == nullptr) {
-            std::cout << '\n';
-            return;
-        }
-
-        const auto pad = new std::size_t{helper->width - std::strlen(title_ptr_->c_str())};
-        std::cout << style(title_ptr_->get_style()) << color_text(title_ptr_->get_color());
-
-        switch (title_ptr_->get_align()) {
-            case Align::LEFT:
-                std::cout << "\n" << title_ptr_->c_str() << std::string(*pad, ' ') << reset_ansi_nl;
-                break;
-            case Align::RIGHT:
-                std::cout << "\n" << std::string(*pad, ' ') << title_ptr_->c_str() << reset_ansi_nl;
-                break;
-            case Align::CENTER:
-                const auto half_pad = new std::size_t{*pad / 2};
-                const auto* rem = new uint8_t{static_cast<uint8_t>(*pad % 2)};
-                std::cout << "\n"
-                    << std::string(*half_pad, ' ')
-                    << title_ptr_->c_str()
-                    << std::string(*half_pad + *rem, ' ')
-                    << reset_ansi_nl;
-                delete rem;
-                delete half_pad;
-                break;
-        }
-        delete pad;
     }
 
 
@@ -1184,21 +1030,21 @@ private:
 
         for (auto i{0uz}; i < helper->num_of_cols; ++i) {
 
-            *pad = helper->col_dimensions_.at(i).buffer - header_ptr_->get_header(i + 1).length();
+            *pad = helper->col_dimensions_.at(i).buffer - columns_ptr_->get_header(i + 1).length();
 
-            switch ((col_chrs_ptr_+ i)->header_alignment) {
+            switch (columns_ptr_->get_header_alignment(i + 1)) {
                 case Align::LEFT:
-                    row_str.append(header_ptr_->get_header(i + 1) + std::string(*pad, ' '));
+                    row_str.append(columns_ptr_->get_header(i + 1) + std::string(*pad, ' '));
                     break;
                 case Align::RIGHT:
-                    row_str.append(std::string(*pad, ' ') + header_ptr_->get_header(i + 1));
+                    row_str.append(std::string(*pad, ' ') + columns_ptr_->get_header(i + 1));
                     break;
-                case Align::CENTER:
+                default: // Center
                     const auto half_pad = *pad / 2;
                     const auto remainder = *pad % 2;
                     row_str.append(
                         std::string(half_pad, ' ') +
-                        header_ptr_->get_header(i + 1) +
+                        columns_ptr_->get_header(i + 1) +
                         std::string(half_pad + remainder, ' '));
                     break;
             }
@@ -1209,32 +1055,9 @@ private:
     }
 
 
-    [[nodiscard]] constexpr Menu_Characteristics::column* col_chrs() const {return col_chrs_ptr_;}
-
-
-    static constexpr std::string color_text(const Color color) {
-        return "\033[" + color_driver(color) + "m";
-    }
-
-    static constexpr std::string color_driver(const Color c) noexcept {
-        switch (c) {
-            case Color::BLACK: return "30";
-            case Color::RED: return "31";
-            case Color::GREEN: return "32";
-            case Color::YELLOW: return "33";
-            case Color::BLUE: return "34";
-            case Color::MAGENTA: return "35";
-            case Color::CYAN: return "36";
-            case Color::WHITE: return "37";
-        }
-        return "";
-    }
-
-
     str_vec_2d_t* menu_items_;
-    std::vector<Separator>* separators_;
-    Headers<columns>* header_ptr_;
-    Menu_Characteristics::column* col_chrs_ptr_;
+    Separator* separators_;
+    Columns<columns>* columns_ptr_;
     Title_t* title_ptr_;
     std::size_t* response_ptr_;
 

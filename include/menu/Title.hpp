@@ -97,6 +97,7 @@ struct Title_t {
     }
 
 
+    [[nodiscard]]
     constexpr char* c_str() const noexcept {
         return title_;
     }
@@ -105,9 +106,49 @@ struct Title_t {
     constexpr void set_align(const Align alignment) noexcept { title_alignment_ = alignment; }
     constexpr void set_color(const Color& color) noexcept { title_color_ = color; }
     constexpr void set_style(const Style style) noexcept { title_style_ = style; }
+    [[nodiscard]]
     constexpr Align get_align() const noexcept { return title_alignment_; }
+    [[nodiscard]]
     constexpr Color get_color() const noexcept { return title_color_; }
+    [[nodiscard]]
     constexpr Style get_style() const noexcept { return title_style_; }
+
+    /**
+         * @brief prints title row. title is centered. If title has no value function just prints a newline
+         * @param t_width Total width of menu
+         */
+    constexpr void print(const std::size_t t_width) const noexcept {
+
+        const auto pad = std::size_t{t_width - std::strlen(title_)};
+        std::string output;
+        output.reserve(
+            style(title_style_).size() +
+            color_text(title_color_).size() +
+            t_width +
+            reset_ansi_nl.size());
+        output += style(title_style_) + color_text(title_color_) + "\n";
+
+        switch (title_alignment_) {
+            case Align::LEFT:
+                output += title_;
+                output.append(pad, ' ');
+                output += reset_ansi_nl;
+                break;
+            case Align::RIGHT:
+                output.append(pad, ' ');
+                output += title_ + reset_ansi_nl;
+                break;
+            case Align::CENTER:
+                const auto half_pad = pad / 2;
+                const auto rem = static_cast<uint8_t>(pad % 2);
+                output.append(half_pad, ' ');
+                output += title_;
+                output.append(half_pad + rem, ' ');
+                output += reset_ansi_nl;
+                break;
+        }
+        std::fwrite(output.data(), 1, output.size(), stdout);
+    }
 
 private:
     char* title_;

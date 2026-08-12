@@ -7,6 +7,7 @@
 #include <chrono>
 
 #define TESTVALUE 31
+#define TESTCOLS 3
 #define RESETTESTVALUE 50
 #define TESTLOOP 10000
 
@@ -31,7 +32,7 @@ void clear_prev_lines(const std::size_t num_lines) {
 int main() {
 
 
-    tests_1d::main();
+    tests_2d::main();
 
     return 0;
 
@@ -45,24 +46,25 @@ int tests_2d::main() {
             {"Salad", "Order-in", "$6.25"},
         };
 
-    Menu<3> menu(items);
+    Menu<TESTCOLS> menu(items);
     menu.emplace_back({"EXIT", "", ""});
 
     menu.title("This Is A Test", Align::LEFT, Color::RED);
     menu.headers({"Item", "In-or-Out", "Price"});
-    menu.separators('=', 4, '-', 1);
-    menu.align(3, Align::RIGHT);
+    menu.separators('=', 4, Color::GREEN, '-', 1, Color::WHITE);
+    menu.align_column(3, Align::RIGHT);
     menu.excl_align({4});
     menu.align_header(3, Align::CENTER, 2, Align::LEFT);
     menu.preceding_dots(3, {4});
     menu.print();
 
-    Menu<3> menu2(items);
+    Menu<TESTCOLS> menu2(items);
     menu2 = menu;
     menu2.title("This Is A Test 2", Align::CENTER, Color::BLUE, Style::BOLD);
     menu2.print();
-    Menu<3> menu3(items);
+    Menu<TESTCOLS> menu3(items);
     menu3 = std::move(menu);
+    menu3.title("This Is A Test 3", Align::RIGHT, Color::MAGENTA, Style::ITALIC);
     menu3.print();
 
 
@@ -96,7 +98,7 @@ int tests_2d::title() {
     menu.title("Restaurant Menu", Align::CENTER);
     menu.title("Restaurant Menu2", Align::RIGHT);
 
-    menu.separators('=', 4);
+    menu.separators('=', 4, Color::WHITE);
     menu.excl_align({4});
 
     menu.print();
