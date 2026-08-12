@@ -31,7 +31,7 @@ void clear_prev_lines(const std::size_t num_lines) {
 int main() {
 
 
-    tests_2d::main();
+    tests_1d::main();
 
     return 0;
 
@@ -45,23 +45,23 @@ int tests_2d::main() {
             {"Salad", "Order-in", "$6.25"},
         };
 
-    Menu<str_vec_2d_t> menu(items);
+    Menu<3> menu(items);
     menu.emplace_back({"EXIT", "", ""});
 
     menu.title("This Is A Test", Align::LEFT, Color::RED);
-    menu.add_headers("Item", "In-or-Out", "Price");
-    menu.separators('=', 4);
+    menu.headers({"Item", "In-or-Out", "Price"});
+    menu.separators('=', 4, '-', 1);
     menu.align(3, Align::RIGHT);
     menu.excl_align({4});
     menu.align_header(3, Align::CENTER, 2, Align::LEFT);
     menu.preceding_dots(3, {4});
     menu.print();
 
-    Menu<str_vec_2d_t> menu2(items);
+    Menu<3> menu2(items);
     menu2 = menu;
-    menu2.title("This Is A Test 2", Align::CENTER, Color::BLUE);
+    menu2.title("This Is A Test 2", Align::CENTER, Color::BLUE, Style::BOLD);
     menu2.print();
-    Menu<str_vec_2d_t> menu3(items);
+    Menu<3> menu3(items);
     menu3 = std::move(menu);
     menu3.print();
 
@@ -90,7 +90,7 @@ int tests_2d::title() {
                 {"Salad", "Order-in", "$6.25"},
             };
 
-    Menu<str_vec_2d_t> menu(items);
+    Menu<3> menu(items);
     menu.emplace_back({"EXIT", "", ""});
 
     menu.title("Restaurant Menu", Align::CENTER);
@@ -115,7 +115,7 @@ void tests_1d::main() {
         else
             items_1d.emplace_back("Test");
     }
-    Menu<str_vec_1d_t> menu_1d(items_1d);
+    Menu<1> menu_1d(items_1d);
     menu_1d.title("1D Menu Test");
     menu_1d.print();
 
