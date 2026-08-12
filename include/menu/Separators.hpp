@@ -108,6 +108,11 @@ struct Separator {
     /** Clears all separators */
     constexpr void clear() noexcept { separators_.clear(); }
 
+    constexpr std::size_t count() noexcept {
+        return std::distance(separators_.begin(), separators_.end()) - 1;
+    }
+
+
     /** @memberof Separator \n nodes in list contain info on a separator for menu */
     std::forward_list<Sep_Characteristics> separators_;
 };

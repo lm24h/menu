@@ -39,6 +39,18 @@ class Columns {
 public:
     Columns() {
         clear();
+
+    }
+
+    constexpr void style_headers(
+        const std::size_t col_index,
+        const Align alignment=Align::LEFT,
+        const Color color=Color::WHITE,
+        const Style style=Style::NONE)
+    {
+        columns_[col_index].header.characteristics.alignment_ = alignment;
+        columns_[col_index].header.characteristics.style_ = style;
+        columns_[col_index].header.characteristics.color_ = color;
     }
 
     constexpr void set_headers(std::ranges::input_range auto&& headers) {
@@ -159,7 +171,39 @@ public:
     }
 
 
+    /** @brief Prints the header row. Does not check if header has elements */
+    constexpr void print_header(const std::vector<col_dimensions> &dimensions) {
 
+        std::string row_str;
+        const auto pad = new std::size_t{0uz};
+
+        for (auto i{0uz}; i < size; ++i) {
+
+            *pad = dimensions.at(i).buffer - get_header(i + 1).length();
+            row_str.append(
+                color_text(columns_[i].header.characteristics.color_) + style(columns_[i].header.characteristics.style_));
+
+            switch (columns_[i].header.characteristics.alignment_) {
+                case Align::LEFT:
+                    row_str.append(get_header(i + 1) + std::string(*pad, ' '));
+                    break;
+                case Align::RIGHT:
+                    row_str.append(std::string(*pad, ' ') + get_header(i + 1));
+                    break;
+                default: // Center
+                    const auto half_pad = *pad / 2;
+                    const auto remainder = *pad % 2;
+                    row_str.append(
+                        std::string(half_pad, ' ') +
+                        get_header(i + 1) +
+                        std::string(half_pad + remainder, ' '));
+                    break;
+            }
+        }
+        delete pad;
+        row_str.append(reset_ansi_nl);
+        std::cout << row_str;
+    }
 
 
 private:

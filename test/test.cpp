@@ -21,7 +21,7 @@ namespace tests_1d {
 }
 
 void clear_prev_lines(const std::size_t num_lines) {
-    for (auto i{0uz}; i < num_lines; ++i) {
+    for (auto i{0uz}; i <= num_lines; ++i) {
         std::cout << "\033[2K";
         if (i + 1 < num_lines)
             std::cout << "\033[1A";
@@ -30,7 +30,6 @@ void clear_prev_lines(const std::size_t num_lines) {
 }
 
 int main() {
-
 
     tests_2d::main();
 
@@ -50,23 +49,27 @@ int tests_2d::main() {
     menu.emplace_back({"EXIT", "", ""});
 
     menu.title("This Is A Test", Align::LEFT, Color::RED);
-    menu.headers({"Item", "In-or-Out", "Price"});
+    menu.headers({"Item", "In-Or-Out", "Price"});
+    menu.style_header(1, Align::LEFT, Color::BLUE, Style::ITALIC);
+    menu.style_header(2, Align::CENTER, Color::GREEN, Style::ITALIC);
+    menu.style_header(3, Align::RIGHT, Color::RED, Style::ITALIC);
+
     menu.separators('=', 4, Color::GREEN, '-', 1, Color::WHITE);
-    menu.align_column(3, Align::RIGHT);
+    menu.align_column(3, Align::RIGHT, 2, Align::CENTER);
     menu.excl_align({4});
-    menu.align_header(3, Align::CENTER, 2, Align::LEFT);
     menu.preceding_dots(3, {4});
     menu.print();
 
     Menu<TESTCOLS> menu2(items);
     menu2 = menu;
     menu2.title("This Is A Test 2", Align::CENTER, Color::BLUE, Style::BOLD);
+    menu2.headers({"Item", "In-Or-Out", "Price($)"});
     menu2.print();
+
     Menu<TESTCOLS> menu3(items);
     menu3 = std::move(menu);
     menu3.title("This Is A Test 3", Align::RIGHT, Color::MAGENTA, Style::ITALIC);
     menu3.print();
-
 
     // std::chrono::duration<long long, std::ratio<1, 1000000>> total_elapsed{0};
     //
