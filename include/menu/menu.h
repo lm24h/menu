@@ -670,7 +670,7 @@ public:
     constexpr void separators(
         const char sep_char,
         const std::size_t index,
-        const Color color,
+        const Color color=Color::WHITE,
         Args&&... args)
     {
         if (separators_->find_separator(index) != nullptr)
