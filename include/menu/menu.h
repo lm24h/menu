@@ -601,8 +601,8 @@ public:
         catch ([[maybe_unused]] std::out_of_range &e) {
             std::cerr << e.what() << '\n';
             throw std::out_of_range(
-                "\nNumber of header arguments ->(" + std::ranges::size(headers) +
-                ") > number of cols ->(" + columns + ")");
+                "\nNumber of header arguments ->(" + std::to_string(std::ranges::size(headers)) +
+                ") > number of cols ->(" + std::to_string(columns) + ")");
         }
     }
 
