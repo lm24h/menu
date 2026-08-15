@@ -46,9 +46,9 @@ int tests_2d::main() {
         };
 
     Menu<TESTCOLS> menu(items);
-    menu.emplace_back({"EXIT", "", ""});
+    menu.add_rows({"EXIT", "", ""});
 
-    menu.title("This Is A Test", Align::LEFT, Color::RED);
+    menu.set_title("This Is A Test", Align::LEFT, Color::RED);
     menu.headers({"Item", "In-Or-Out", "Price"});
     menu.style_header(1, Align::LEFT, Color::BLUE, Style::ITALIC);
     menu.style_header(2, Align::CENTER, Color::GREEN, Style::ITALIC);
@@ -58,17 +58,19 @@ int tests_2d::main() {
     menu.align_column(3, Align::RIGHT, 2, Align::CENTER);
     menu.excl_align({4});
     menu.preceding_dots(3, {4});
+    menu.color_element_if_else(3, Color::GREEN, 2, "Order-in", Color::RED);
+
     menu.print();
 
     Menu<TESTCOLS> menu2(items);
     menu2 = menu;
-    menu2.title("This Is A Test 2", Align::CENTER, Color::BLUE, Style::BOLD);
+    menu2.set_title("This Is A Test 2", Align::CENTER, Color::BLUE, Style::BOLD);
     menu2.headers({"Item", "In-Or-Out", "Price($)"});
     menu2.print();
 
     Menu<TESTCOLS> menu3(items);
     menu3 = std::move(menu);
-    menu3.title("This Is A Test 3", Align::RIGHT, Color::MAGENTA, Style::ITALIC);
+    menu3.set_title("This Is A Test 3", Align::RIGHT, Color::MAGENTA, Style::ITALIC);
     menu3.print();
 
     // std::chrono::duration<long long, std::ratio<1, 1000000>> total_elapsed{0};
@@ -96,10 +98,10 @@ int tests_2d::title() {
             };
 
     Menu<3> menu(items);
-    menu.emplace_back({"EXIT", "", ""});
+    menu.add_rows({"EXIT", "", ""});
 
-    menu.title("Restaurant Menu", Align::CENTER);
-    menu.title("Restaurant Menu2", Align::RIGHT);
+    menu.set_title("Restaurant Menu", Align::CENTER);
+    menu.set_title("Restaurant Menu2", Align::RIGHT);
 
     menu.separators('=', 4, Color::WHITE);
     menu.excl_align({4});

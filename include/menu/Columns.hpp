@@ -39,7 +39,6 @@ class Columns {
 public:
     Columns() {
         clear();
-
     }
 
     constexpr void style_headers(
@@ -55,7 +54,9 @@ public:
 
     constexpr void set_headers(std::ranges::input_range auto&& headers) {
         if (std::ranges::size(headers) != size)
-            throw std::invalid_argument("\nHeaders count mismatch");
+            throw std::invalid_argument("\nNumber of header arguments ->(" +
+                std::to_string(std::ranges::size(headers)) +
+                ") > number of cols ->(" + std::to_string(size) + ")");
         for (std::size_t i = 0; i < size; ++i)
             columns_[i].header.header_str = headers[i];
     }

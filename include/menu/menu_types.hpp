@@ -76,6 +76,30 @@ struct col_dimensions {
     std::size_t padding;
 };
 
+typedef struct {
+    str_vec_2d_t items_;
+    enum {NonEmpty, Empty, Uninitialized} status_;
+} Menu_Items_t;
+
+struct Color_Condition_s {
+    std::size_t col_index_to_color_;
+    Color color_;
+    std::size_t col_index_for_condition_;
+    std::string equal_condition_;
+    Color else_color_;
+};
+
+struct Color_Conditions_t {
+    constexpr const Color_Condition_s *find_by_col_index_to_color(const std::size_t index) const noexcept {
+        for (std::size_t i = 0; i < conditions_.size(); ++i ) {
+            if (conditions_[i].col_index_to_color_ == index) {
+                return &conditions_[i];
+            }
+        }
+        return nullptr;
+    }
+    std::vector<Color_Condition_s> conditions_;
+};
 
 
 

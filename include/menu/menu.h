@@ -21,6 +21,7 @@ namespace Menu_Characteristics {
     struct row {
         inline static std::initializer_list<std::size_t> exclude_from_dots;
         inline static std::initializer_list<std::size_t> exclude_from_alignment;
+
     };
 }
 
@@ -394,11 +395,12 @@ public:
      * @param other any other Menu object
      */
     Menu(const Menu& other) :
-        menu_items_{new str_vec_2d_t{*other.menu_items_}},
+        menu_items_{other.menu_items_},
         separators_{new Separator{*other.separators_}},
         columns_ptr_{new Columns<columns>{*other.columns_ptr_}},
         title_ptr_{nullptr},
-        response_ptr_{new std::size_t{*other.response_ptr_}}
+        response_ptr_{new std::size_t{*other.response_ptr_}},
+        color_conditions_{other.color_conditions_}
     {
         if (other.title_ptr_ != nullptr)
             title_ptr_ = new Title_t{*other.title_ptr_};
@@ -414,7 +416,8 @@ public:
         separators_{other.separators_},
         columns_ptr_{other.columns_ptr_},
         title_ptr_{other.title_ptr_},
-        response_ptr_{other.response_ptr_} { null_all(other); }
+        response_ptr_{other.response_ptr_},
+        color_conditions_{other.color_conditions_} { null_all(other); }
 
 
     /**
@@ -426,7 +429,7 @@ public:
         if (this == &other)
             return *this;
 
-        const auto new_menu_items = new str_vec_2d_t{*other.menu_items_};
+        const auto new_menu_items = other.menu_items_;
         const auto new_separators = new Separator{*other.separators_};
         const auto new_columns_ptr = new Columns<columns>{*other.columns_ptr_};
         const auto new_response_ptr = new std::size_t{*other.response_ptr_};
@@ -446,6 +449,7 @@ public:
         columns_ptr_ = new_columns_ptr;
         response_ptr_ = new_response_ptr;
         title_ptr_ = new_title_ptr;
+        color_conditions_ = other.color_conditions_;
 
         return *this;
     }
@@ -469,6 +473,7 @@ public:
         columns_ptr_ = other.columns_ptr_;
         title_ptr_ = other.title_ptr_;
         response_ptr_ = other.response_ptr_;
+        color_conditions_ = other.color_conditions_;
 
         // NULL other memory
        null_all(other);
@@ -476,22 +481,25 @@ public:
         return *this;
     }
 
-
-
-    /**
-     * @brief header and separators remain empty
-     * @param menu_items container of strings to be the menu choices
-     */
-    explicit Menu(const str_vec_2d_t& menu_items) :
-        menu_items_(new str_vec_2d_t{menu_items}),
+    Menu() :
         separators_(new Separator{}),
         columns_ptr_(new Columns<columns>{}),
         title_ptr_(nullptr),
-        response_ptr_(new std::size_t{0uz}) {}
+        response_ptr_(new std::size_t{0uz}) { menu_items_.status_ = Menu_Items_t::Uninitialized; }
+
+    /**
+     * @brief title, header, and separators remain empty
+     * @param menu_items container of strings to be the menu choices
+     */
+    explicit Menu(const str_vec_2d_t& menu_items) :
+        separators_(new Separator{}),
+        columns_ptr_(new Columns<columns>{}),
+        title_ptr_(nullptr),
+        response_ptr_(new std::size_t{0uz}) { init_menu_items(menu_items); }
 
 
     /** @brief Sets title for menu and alignment. Default alignment for title is center */
-    constexpr void title(
+    constexpr void set_title(
         const std::string& title,
         const Align alignment=Align::CENTER,
         const Color color=Color::WHITE ,
@@ -501,7 +509,7 @@ public:
     }
 
     /** @returns title for menu or empty string if title not set */
-    [[nodiscard]] constexpr std::string title() const noexcept
+    [[nodiscard]] constexpr std::string get_title() const noexcept
         { return title_ptr_==nullptr ? "" : title_ptr_->c_str(); }
 
 
@@ -509,7 +517,9 @@ public:
 
 
     /** @returns menu items from menu as vector */
-    [[nodiscard]] constexpr str_vec_2d_t menu_items() const noexcept { return *menu_items_; }
+    [[nodiscard]] constexpr str_vec_2d_t get_menu_items() const noexcept { return menu_items_.items_; }
+
+    constexpr void set_menu_items(const str_vec_2d_t& menu_items) noexcept { init_menu_items(menu_items); }
 
 
     /**
@@ -517,9 +527,12 @@ public:
      * @param col_index begins at 1 -> first column is 1begins at 1 -> first column is 1
      * @param alignment LEFT, RIGHT, CENTER
      * @param args more col_index and alignment arguments
+     * @throws std::runtime_error if menu is uninitialized
      */
     template <typename... Args>
     constexpr void align_column(const std::size_t col_index, const Align alignment, Args&&... args) const {
+        if (menu_items_.status_ != Menu_Items_t::NonEmpty)
+            throw std::runtime_error("Menu must be initialized and non-empty to adjust columns");
         columns_ptr_->align_column(col_index, alignment, args...);
     }
 
@@ -547,17 +560,17 @@ public:
      * @throws std::invalid_argument If size of row != number of columns
      */
     template <typename... Args>
-    constexpr void emplace_back(const std::vector<std::string>& row, const Args&... rows)
+    constexpr void add_rows(const std::vector<std::string>& row, const Args&... rows)
     requires (std::same_as<std::remove_cvref_t<Args>, std::vector<std::string>> && ...)
     {
-        if (row.size() != columns && !empty())
+        if (row.size() != columns)
             throw std::invalid_argument(
                 "\nRow size ->(" + std::to_string(row.size()) + ") " +
                 "does not match established number of columns ->(" + std::to_string(columns) + ")"
             );
-        menu_items_->emplace_back(row);
+        menu_items_.items_.emplace_back(row);
         if constexpr (sizeof...(rows) > 0)
-            emplace_back(row);
+            add_rows(row);
     }
 
 
@@ -567,10 +580,9 @@ public:
      *
      * @throws std::invalid_argument If size of row != number of columns
      */
-    constexpr void emplace_back(const std::initializer_list<std::vector<std::string>> rows)
-    {
+    constexpr void add_rows(const std::initializer_list<std::vector<std::string>> rows) {
         for (const auto & row : rows)
-            emplace_back(row);
+            add_rows(row);
     }
 
 
@@ -579,9 +591,11 @@ public:
      * @param headers describes a vector of column names
      *
      * @throws std::invalid_argument if the number of headers does not match the number of columns of menu.
-     * @throws std::runtime_error If menu is empty
+     * @throws std::runtime_error If menu is empty or uninitialized
      */
     constexpr void headers(const std::initializer_list<std::string>& headers) const {
+        if (menu_items_.status_ != Menu_Items_t::NonEmpty)
+            throw std::runtime_error("Menu must be initialized and non-empty to set column names");
         columns_ptr_->set_headers(headers);
     }
 
@@ -593,17 +607,8 @@ public:
      *
      * @throws std::invalid_argument if # of headers is greater than # of columns
      */
-    template <typename... Args>
     constexpr void headers(std::ranges::input_range auto&& headers){
-        try {
-            columns_ptr_->set_headers(std::forward<decltype(headers)>(headers));
-        }
-        catch ([[maybe_unused]] std::out_of_range &e) {
-            std::cerr << e.what() << '\n';
-            throw std::out_of_range(
-                "\nNumber of header arguments ->(" + std::to_string(std::ranges::size(headers)) +
-                ") > number of cols ->(" + std::to_string(columns) + ")");
-        }
+        columns_ptr_->set_headers(std::forward<decltype(headers)>(headers));
     }
 
 
@@ -613,6 +618,8 @@ public:
         const Color color=Color::WHITE,
         const Style style=Style::NONE)
     {
+        if (menu_items_.status_ != Menu_Items_t::NonEmpty)
+            throw std::runtime_error("Menu must be initialized and non-empty to adjust columns");
         if (col_index > columns || col_index == 0)
             throw std::out_of_range(
                 "Entered col index ->(" + std::to_string(col_index) +
@@ -623,21 +630,26 @@ public:
 
 
     /**
-     * @return headers for menu
+     *  Column indexing starts at 1
+     * @return header for menu
      */
-    [[nodiscard]] constexpr Columns<columns> headers() const noexcept { return *columns_ptr_; }
+    [[nodiscard]] constexpr std::string get_header(std::size_t col_index) const noexcept {
+        return columns_ptr_->get_header(col_index);
+    }
 
 
     /**
      * @return number of menu items
      */
-    [[nodiscard]] constexpr std::size_t size() const noexcept { return menu_items_->size(); }
+    [[nodiscard]] constexpr std::size_t size() const noexcept { return menu_items_.items_.size(); }
 
 
     /**
-     * @return true if menu is empty, false O.W.
+     * @return true if menu is empty or uninitialized, false O.W.
      */
-    [[nodiscard]] constexpr bool empty() const noexcept { return menu_items_->empty(); }
+    [[nodiscard]] constexpr bool empty() const noexcept {
+        return menu_items_.status_ == Menu_Items_t::Empty || menu_items_.status_ == Menu_Items_t::Uninitialized;
+    }
 
 
     /**
@@ -650,6 +662,8 @@ public:
         const std::size_t column,
         const std::initializer_list<std::size_t>& exclude_rows={}) const
     {
+        if (menu_items_.status_ != Menu_Items_t::NonEmpty)
+            throw std::runtime_error("Menu must be initialized and non-empty to adjust columns");
         columns_ptr_->preceding_dots(column);
         Menu_Characteristics::row::exclude_from_dots = exclude_rows;
     }
@@ -676,10 +690,10 @@ public:
         if (separators_->find_separator(index) != nullptr)
             return;
 
-        if (index > menu_items_->size() || index < 1)
+        if (index > menu_items_.items_.size() || index < 1)
             throw std::invalid_argument(
                 "\nEntered index ->(" + std::to_string(index) + ") outside acceptable range " +
-                "[1, menu_size->(" + std::to_string(menu_items_->size()) + ")]"
+                "[1, menu_size->(" + std::to_string(menu_items_.items_.size()) + ")]"
             );
 
         separators_->add(sep_char, color, index);
@@ -710,10 +724,10 @@ public:
     constexpr void response(const std::size_t resp) const {
         if (*response_ptr_ != 0)
             throw std::runtime_error("\nResponse already set, call reset_response() to clear");
-        if (resp < 1 || resp > menu_items_->size())
+        if (resp < 1 || resp > menu_items_.items_.size())
             throw std::invalid_argument(
                 "\nEntered response ->(" + std::to_string(resp) + ") outside acceptable range " +
-                "[1, menu_size->(" + std::to_string(menu_items_->size()) + ")]"
+                "[1, menu_size->(" + std::to_string(menu_items_.items_.size()) + ")]"
             );
         *response_ptr_ = resp;
     }
@@ -722,7 +736,7 @@ public:
      * @throws std::runtime_error if response has not been set
      * @return response as integer
      */
-    [[nodiscard]] constexpr std::size_t response() const {
+    [[nodiscard]] constexpr std::size_t get_response() const {
         if (*response_ptr_ != 0)
             return *response_ptr_;
         throw std::runtime_error("\nResponse not set");
@@ -733,7 +747,8 @@ public:
      * Clears all menu items, all separators, title, header(if applicable), and response
      */
     constexpr void reset() noexcept {
-        menu_items_->clear();
+        menu_items_.items_.clear();
+        menu_items_.status_ = Menu_Items_t::Uninitialized;
         separators_->clear();
         this->clear_header();
         *response_ptr_ = 0;
@@ -771,7 +786,8 @@ public:
         if (title_ptr_ != nullptr)
             title_ptr_->print(print_helper_.width);
         std::cout << std::string(print_helper_.width, '~') << "\n";
-        this->print_rows(&print_helper_);
+        if (menu_items_.status_ == Menu_Items_t::NonEmpty)
+            this->print_rows(&print_helper_);
         std::cout << std::string(print_helper_.width, '~') << "\n";
     }
 
@@ -789,10 +805,33 @@ public:
     }
 
 
+    constexpr void color_element_if_else(
+        const std::size_t col_index_to_color,
+        const Color color,
+        const std::size_t col_index_for_condition,
+        const std::string& equal_condition,
+        const Color else_color=Color::WHITE)
+    {
+        if (col_index_to_color > columns || col_index_to_color < 1)
+            throw std::invalid_argument("Entered col index ->(" + std::to_string(col_index_to_color) +
+                ") outside exceptable col range ->[1, " + std::to_string(columns) + "]");
+        if (col_index_for_condition > columns || col_index_for_condition < 1)
+            throw std::invalid_argument("Entered col index ->(" + std::to_string(col_index_for_condition) +
+                ") outside exceptable col range ->[1, " + std::to_string(columns) + "]");
+        if (col_index_to_color == col_index_for_condition)
+            throw std::invalid_argument("Parameters for column indexes cannot be equal");
+        color_conditions_.conditions_.emplace_back(Color_Condition_s{
+            .col_index_to_color_ = col_index_to_color,
+            .color_ = color,
+            .col_index_for_condition_ = col_index_for_condition,
+            .equal_condition_ = equal_condition,
+            .else_color_ = else_color});
+    }
+
+
 private:
 
     static constexpr void free_all(Menu& menu) noexcept {
-        delete menu.menu_items_;
         delete menu.response_ptr_;
         delete menu.separators_;
         delete menu.columns_ptr_;
@@ -800,12 +839,26 @@ private:
     }
 
     static constexpr void null_all(Menu& menu) noexcept {
-        menu.menu_items_ = nullptr;
         menu.response_ptr_ = nullptr;
         menu.separators_ = nullptr;
         menu.columns_ptr_ = nullptr;
         menu.title_ptr_ = nullptr;
     }
+
+    constexpr void init_menu_items(const str_vec_2d_t& menu_items) {
+        if (menu_items.empty()) {
+            menu_items_.status_ = Menu_Items_t::Empty;
+        }
+        else if (menu_items[0].size() != columns)
+            throw std::length_error{"Cannot construct Menu: Number of columns ->(" +
+                std::to_string(menu_items[0].size()) + ") " +
+                "does not match established number of columns ->(" + std::to_string(columns) + ")"};
+        else {
+            menu_items_.items_ = menu_items;
+            menu_items_.status_ = Menu_Items_t::NonEmpty;
+        }
+    }
+
 
 
     /**
@@ -814,22 +867,22 @@ private:
  * @brief prints all rows of menu
  */
     constexpr void print_rows(const print_helper *const helper) {
-        if (!this->headers().empty())
+        if (!columns_ptr_->empty())
             columns_ptr_->print_header(helper->col_dimensions_);
         // Print Rows
         for (auto i{1uz}; i <= helper->items.size(); ++i) {
             separators_->print(helper->width, i);
-            std::cout << helper->build_row(i, columns_ptr_->columns());
+            std::cout << helper->build_row(i, columns_ptr_->columns(), color_conditions_);
         }
     }
 
 
-    str_vec_2d_t* menu_items_;
+    Menu_Items_t menu_items_;
     Separator* separators_;
     Columns<columns>* columns_ptr_;
     Title_t* title_ptr_;
     std::size_t* response_ptr_;
-
+    Color_Conditions_t color_conditions_;
 };
 
 /**
@@ -850,9 +903,9 @@ public:
      * @param menu pointer to Menu class
      * @brief calculates all necessary values for printing a menu
      */
-    explicit print_helper(const Menu<columns> * menu) {
+    explicit print_helper(const Menu* menu) {
 
-        items = menu->menu_items();
+        items = menu->get_menu_items();
         num_of_cols = items.at(0).size();
 
         // adding numbered index to menu items in first column, format: #) menu_item[0]
@@ -865,12 +918,12 @@ public:
             auto test_column = get_col(items, i);
 
             // if there are headers then they need to be included in buffer calculation
-            test_column.emplace_back(menu->headers().get_header(i + 1));
+            test_column.emplace_back(menu->get_header(i + 1));
 
             col_dimensions_.emplace_back(max_length_in_items(test_column) + 8, 0);
         }
 
-        width = this->get_buffer_size(menu->title());
+        width = this->get_buffer_size(menu->get_title());
     }
 
 
@@ -959,30 +1012,41 @@ public:
 * @memberof print_helper<std::vector<std::vector<std::string>>>
  */
     [[nodiscard]] std::string build_row(
-        const std::size_t row_index, const std::array<Column_t, columns> col_chrs_ptr) const
+        const std::size_t row_index,
+        const std::array<Column_t, columns> col_chrs_ptr,
+        const Color_Conditions_t &conditions) const
     {
 
         std::string row_str;
         std::string item{};
-        auto * const pad = new std::size_t{0uz};
+        auto pad = std::size_t{0uz};
         char preceding_pad_char, follow_pad_char;
 
         for (auto i{0uz}; i < num_of_cols; ++i) {
 
-            *pad = col_dimensions_.at(i).buffer - items[row_index - 1][i].length();
+            pad = col_dimensions_.at(i).buffer - items[row_index - 1][i].length();
 
             const Align alignment = in_list(row_index, Menu_Characteristics::row::exclude_from_alignment)
                                   ? Align::LEFT : col_chrs_ptr[i].characteristics.alignment_;
 
+
             // Index must be separated from the item string for first column
             if (i == FIRST_COLUMN) {
-                const auto index_pos = new std::size_t{items[row_index - 1][i].find(')')};
-                item = items[row_index - 1][i].substr(*index_pos + 2);
-                row_str.append(items[row_index - 1][i].substr(0, *index_pos + 2));
-                delete index_pos;
+                const auto index_pos = std::size_t{items[row_index - 1][i].find(')')};
+                item = items[row_index - 1][i].substr(index_pos + 2);
+                row_str.append(items[row_index - 1][i].substr(0, index_pos + 2));
             }
             else {
                 item = items[row_index - 1][i];
+            }
+
+
+            if (const auto color_condition = conditions.find_by_col_index_to_color(i + 1); color_condition != nullptr) {
+                if (items[row_index - 1][color_condition->col_index_for_condition_ - 1] == color_condition->equal_condition_) {
+                    item = color_text(color_condition->color_) + item + reset_ansi;
+                }
+                else
+                    item = color_text(color_condition->else_color_) + item + reset_ansi;
             }
 
             switch (alignment) {
@@ -995,19 +1059,19 @@ public:
                         preceding_pad_char = '.';
                     else
                         preceding_pad_char = ' ';
-                    row_str.append(item + std::string(*pad, preceding_pad_char));
+                    row_str.append(item + std::string(pad, preceding_pad_char));
                     break;
                 case Align::RIGHT:
                     if (col_chrs_ptr[i].preceding_dots && !in_list(row_index, Menu_Characteristics::row::exclude_from_dots))
                         follow_pad_char = '.';
                     else
                         follow_pad_char = ' ';
-                    row_str.append(std::string(*pad, follow_pad_char) + item);
+                    row_str.append(std::string(pad, follow_pad_char) + item);
                     break;
                 case Align::CENTER:
 
-                    const auto half_pad = *pad / 2;
-                    const auto remainder = *pad % 2;
+                    const auto half_pad = pad / 2;
+                    const auto remainder = pad % 2;
 
                     if (
                         i != num_of_cols - 1 &&
@@ -1029,8 +1093,7 @@ public:
                     break;
             }
         }
-        delete pad;
-        row_str.append("\n");
+        row_str.append(reset_ansi_nl);
         return row_str;
     }
 
