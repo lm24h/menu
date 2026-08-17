@@ -629,9 +629,6 @@ public:
         const Style style=Style::None,
         Args&&... args)
     {
-        if (menu_items_.status_ != Menu_Items_t::NonEmpty)
-            throw std::runtime_error("Menu must be initialized and non-empty to adjust columns");
-
         RANGE_CHECK(1, columns, col_index);
 
         columns_ptr_->style_headers(col_index - 1, alignment, color, style);
