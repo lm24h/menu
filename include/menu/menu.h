@@ -561,6 +561,8 @@ public:
     constexpr void add_rows(const std::vector<std::string>& row, const Args&... rows)
     requires (std::same_as<std::remove_cvref_t<Args>, std::vector<std::string>> && ...)
     {
+        if (menu_items_.status_ == Menu_Items_t::Uninitialized || menu_items_.status_ == Menu_Items_t::Empty)
+            menu_items_.status_ = Menu_Items_t::NonEmpty;
         if (row.size() != columns)
             throw std::invalid_argument(
                 "\nRow size ->(" + std::to_string(row.size()) + ") " +
