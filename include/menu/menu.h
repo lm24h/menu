@@ -533,8 +533,6 @@ public:
      */
     template <typename... Args>
     constexpr void align_column(const std::size_t col_index, const Align alignment, Args&&... args) const {
-        if (menu_items_.status_ != Menu_Items_t::NonEmpty)
-            throw std::runtime_error("Menu must be initialized and non-empty to adjust columns");
         columns_ptr_->align_column(col_index, alignment, args...);
     }
 
