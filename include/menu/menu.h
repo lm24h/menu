@@ -667,8 +667,6 @@ public:
         const std::size_t column,
         const std::initializer_list<std::size_t>& exclude_rows={}) const
     {
-        if (menu_items_.status_ != Menu_Items_t::NonEmpty)
-            throw std::runtime_error("Menu must be initialized and non-empty to adjust columns");
         columns_ptr_->preceding_dots(column);
         Menu_Characteristics::row::exclude_from_dots = exclude_rows;
     }
