@@ -15,9 +15,9 @@ struct Col_Characteristics {
         color_(color) {}
 
 
-    Align alignment_{Align::LEFT};
-    Style style_{Style::NONE};
-    Color color_{Color::WHITE};
+    Align alignment_{Align::Left};
+    Style style_{Style::None};
+    Color color_{Color::White};
 };
 
 struct Header_t {
@@ -29,23 +29,30 @@ struct Header_t {
 struct Column_t {
     Column_t()=default;
     Header_t header;
+    Color_Condition_s color_conditions;
     Col_Characteristics characteristics;
     std::size_t buffer{0uz};
     bool preceding_dots{false};
 };
 
+
+/**
+ * This Class holds all the general styling and sizing information for each column
+ * @tparam size number of columns of menu
+ */
 template <std::size_t size>
 class Columns {
 public:
+
     Columns() {
-        clear();
+        clear_headers();
     }
 
     constexpr void style_headers(
         const std::size_t col_index,
-        const Align alignment=Align::LEFT,
-        const Color color=Color::WHITE,
-        const Style style=Style::NONE)
+        const Align alignment=Align::Left,
+        const Color color=Color::White,
+        const Style style=Style::None)
     {
         columns_[col_index].header.characteristics.alignment_ = alignment;
         columns_[col_index].header.characteristics.style_ = style;
@@ -97,14 +104,15 @@ public:
         return columns_;
     }
 
-    constexpr bool empty() noexcept {
+
+    constexpr bool header_is_empty() noexcept {
         for (const auto& col : columns_)
             if (col.header.header_str != "")
                 return false;
         return true;
     }
 
-    constexpr void clear() noexcept {
+    constexpr void clear_headers() noexcept {
         for (auto& col : columns_)
             col.header.header_str = "";
     }
@@ -142,7 +150,7 @@ public:
     {
         if (col_index > size || col_index < 1) {
             for (auto i{0uz}; i < size; ++i)
-                columns_[i].characteristics.alignment_ = Align::LEFT;
+                columns_[i].characteristics.alignment_ = Align::Left;
             throw std::out_of_range(
                 "Entered col index ->(" + std::to_string(col_index) +
                 ") outside exceptable col range ->[1, " + std::to_string(size) + "]"
@@ -185,10 +193,10 @@ public:
                 color_text(columns_[i].header.characteristics.color_) + style(columns_[i].header.characteristics.style_));
 
             switch (columns_[i].header.characteristics.alignment_) {
-                case Align::LEFT:
+                case Align::Left:
                     row_str.append(get_header(i + 1) + std::string(*pad, ' '));
                     break;
-                case Align::RIGHT:
+                case Align::Right:
                     row_str.append(std::string(*pad, ' ') + get_header(i + 1));
                     break;
                 default: // Center
@@ -204,6 +212,32 @@ public:
         delete pad;
         row_str.append(reset_ansi_nl);
         std::cout << row_str;
+    }
+
+
+    constexpr void set_color_conditions(
+        const std::size_t col_index_to_color,
+        const Color color,
+        const std::size_t col_index_for_condition,
+        const std::string& equal_condition,
+        const Color else_color=Color::White)
+    {
+        if (col_index_to_color > size || col_index_to_color < 1)
+            throw std::invalid_argument("Entered col index ->(" + std::to_string(col_index_to_color) +
+                ") outside exceptable col range ->[1, " + std::to_string(size) + "]");
+        if (col_index_for_condition > size || col_index_for_condition < 1)
+            throw std::invalid_argument("Entered col index ->(" + std::to_string(col_index_for_condition) +
+                ") outside exceptable col range ->[1, " + std::to_string(size) + "]");
+
+        columns_[col_index_to_color - 1].color_conditions = {
+            .equal_condition_ = equal_condition,
+            .col_index_for_condition_ = col_index_for_condition,
+            .color_ = color};
+        auto dummy = 0;
+    }
+
+    constexpr const Color_Condition_s* get_color_condition(const std::size_t col_index) const {
+        return &columns_[col_index - 1].color_conditions;
     }
 
 

@@ -8,7 +8,7 @@
  */
 
 struct Sep_Characteristics {
-    Sep_Characteristics() : index_{0uz}, separator_char_{' '}, color_{Color::WHITE} {}
+    Sep_Characteristics() : index_{0uz}, separator_char_{' '}, color_{Color::White} {}
     Sep_Characteristics(const std::size_t index, const char sep_char, const Color color) :
         index_{index}, separator_char_{sep_char}, color_{color} {}
     /**
@@ -96,7 +96,7 @@ struct Separator {
 
         const auto color = color_text(sep->color_);
         std::string output;
-        output.reserve(color.size() + width + reset_ansi_nl.size());
+        output.reserve(color.size() + width + std::strlen(reset_ansi_nl));
 
         output += color;
         output.append(width, sep->separator_char_);

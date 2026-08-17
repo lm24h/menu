@@ -48,29 +48,29 @@ int tests_2d::main() {
     Menu<TESTCOLS> menu(items);
     menu.add_rows({"EXIT", "", ""});
 
-    menu.set_title("This Is A Test", Align::LEFT, Color::RED);
+    menu.set_title("This Is A Test", Align::Left, Color::Red);
     menu.headers({"Item", "In-Or-Out", "Price"});
-    menu.style_header(1, Align::LEFT, Color::BLUE, Style::ITALIC);
-    menu.style_header(2, Align::CENTER, Color::GREEN, Style::ITALIC);
-    menu.style_header(3, Align::RIGHT, Color::RED, Style::ITALIC);
+    menu.style_header(1, Align::Left, Color::Blue, Style::Italic);
+    menu.style_header(2, Align::Center, Color::Green, Style::Italic);
+    menu.style_header(3, Align::Right, Color::Red, Style::Italic);
 
-    menu.separators('=', 4, Color::GREEN, '-', 1, Color::WHITE);
-    menu.align_column(3, Align::RIGHT, 2, Align::CENTER);
+    menu.separators('=', 4, Color::Green, '-', 1, Color::White);
+    menu.align_column(3, Align::Right, 2, Align::Center);
     menu.excl_align({4});
     menu.preceding_dots(3, {4});
-    menu.color_element_if_else(3, Color::GREEN, 2, "Order-in", Color::RED);
+
 
     menu.print();
 
     Menu<TESTCOLS> menu2(items);
     menu2 = menu;
-    menu2.set_title("This Is A Test 2", Align::CENTER, Color::BLUE, Style::BOLD);
+    menu2.set_title("This Is A Test 2", Align::Center, Color::Blue, Style::Bold);
     menu2.headers({"Item", "In-Or-Out", "Price($)"});
     menu2.print();
 
     Menu<TESTCOLS> menu3(items);
     menu3 = std::move(menu);
-    menu3.set_title("This Is A Test 3", Align::RIGHT, Color::MAGENTA, Style::ITALIC);
+    menu3.set_title("This Is A Test 3", Align::Right, Color::Magenta, Style::Italic);
     menu3.print();
 
     // std::chrono::duration<long long, std::ratio<1, 1000000>> total_elapsed{0};
@@ -100,10 +100,10 @@ int tests_2d::title() {
     Menu<3> menu(items);
     menu.add_rows({"EXIT", "", ""});
 
-    menu.set_title("Restaurant Menu", Align::CENTER);
-    menu.set_title("Restaurant Menu2", Align::RIGHT);
+    menu.set_title("Restaurant Menu", Align::Center);
+    menu.set_title("Restaurant Menu2", Align::Right);
 
-    menu.separators('=', 4, Color::WHITE);
+    menu.separators('=', 4, Color::White);
     menu.excl_align({4});
 
     menu.print();

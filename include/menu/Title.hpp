@@ -30,17 +30,17 @@ struct Title_t {
     {
         other.length_ = 0;
         other.title_ = nullptr;
-        other.title_alignment_ = Align::CENTER;
-        other.title_color_ = Color::WHITE;
-        other.title_style_ = Style::NONE;
+        other.title_alignment_ = Align::Center;
+        other.title_color_ = Color::White;
+        other.title_style_ = Style::None;
     }
 
 
     explicit Title_t(
         const char* const title,
-        const Align alignment=Align::CENTER,
-        const Color color=Color::WHITE ,
-        const Style style=Style::NONE) :
+        const Align alignment=Align::Center,
+        const Color color=Color::White ,
+        const Style style=Style::None) :
 
         title_{static_cast<char*>(std::malloc(std::strlen(title) + 1))},
         length_{static_cast<unsigned int>(std::strlen(title))},
@@ -90,9 +90,9 @@ struct Title_t {
 
         other.title_ = nullptr;
         other.length_ = 0;
-        other.title_alignment_ = Align::CENTER;
-        other.title_color_ = Color::WHITE;
-        other.title_style_ = Style::NONE;
+        other.title_alignment_ = Align::Center;
+        other.title_color_ = Color::White;
+        other.title_style_ = Style::None;
         return *this;
     }
 
@@ -125,20 +125,21 @@ struct Title_t {
             style(title_style_).size() +
             color_text(title_color_).size() +
             t_width +
-            reset_ansi_nl.size());
+            std::strlen(reset_ansi_nl));
         output += style(title_style_) + color_text(title_color_) + "\n";
 
         switch (title_alignment_) {
-            case Align::LEFT:
+            case Align::Left:
                 output += title_;
                 output.append(pad, ' ');
                 output += reset_ansi_nl;
                 break;
-            case Align::RIGHT:
+            case Align::Right:
                 output.append(pad, ' ');
-                output += title_ + reset_ansi_nl;
+                output += title_;
+                output += reset_ansi_nl;
                 break;
-            case Align::CENTER:
+            case Align::Center:
                 const auto half_pad = pad / 2;
                 const auto rem = static_cast<uint8_t>(pad % 2);
                 output.append(half_pad, ' ');
