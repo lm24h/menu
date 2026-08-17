@@ -594,8 +594,6 @@ public:
      * @throws std::runtime_error If menu is empty or uninitialized
      */
     constexpr void headers(const std::initializer_list<std::string>& headers) const {
-        if (menu_items_.status_ != Menu_Items_t::NonEmpty)
-            throw std::runtime_error("Menu must be initialized and non-empty to set column names");
         columns_ptr_->set_headers(headers);
     }
 
